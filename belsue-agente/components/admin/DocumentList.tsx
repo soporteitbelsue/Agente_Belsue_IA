@@ -25,6 +25,7 @@ const CATEGORY_OPTIONS = [
   { value: "salud", label: "Salud" },
   { value: "decesos", label: "Decesos" },
   { value: "viaje", label: "Asistencia en viaje" },
+  { value: "rc", label: "Responsabilidad Civil" },
 ];
 
 const CATEGORY_BADGE: Record<string, string> = {
@@ -35,6 +36,7 @@ const CATEGORY_BADGE: Record<string, string> = {
   salud: "bg-pink-100 text-pink-700",
   decesos: "bg-gray-200 text-gray-700",
   viaje: "bg-teal-100 text-teal-700",
+  rc: "bg-indigo-100 text-indigo-700",
   general: "bg-belsue/10 text-belsue",
 };
 
@@ -44,12 +46,19 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Etiqueta legible para mostrar en el badge (las que difieren del valor).
+const CATEGORY_LABEL: Record<string, string> = {
+  viaje: "Viaje",
+  rc: "RC",
+};
+
 function CategoryBadge({ category }: { category: string | null }) {
   if (!category) return <span className="text-gray-400">—</span>;
   const cls = CATEGORY_BADGE[category] ?? "bg-gray-100 text-gray-600";
+  const label = CATEGORY_LABEL[category] ?? category;
   return (
     <span className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
-      {category}
+      {label}
     </span>
   );
 }

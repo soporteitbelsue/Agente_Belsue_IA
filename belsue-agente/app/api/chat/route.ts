@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { openai, CHAT_MODEL } from "@/lib/openai";
 import { retrieveRelevantChunks } from "@/lib/retrieval";
+import { supabaseServer } from "@/lib/supabase";
+import {
+  createConversation,
+  getSessionUserId,
+  saveMessage,
+  userOwnsConversation,
+} from "@/lib/conversations";
 import type { Source } from "@/types";
 
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
   query: z.string().min(1, "La consulta no puede estar vacía."),
+  conversationId: z.string().uuid().optional(),
   messages: z
     .array(
       z.object({
@@ -47,6 +55,11 @@ function buildContext(sources: Source[]): string {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
+
   let parsed: z.infer<typeof bodySchema>;
   try {
     const json = await req.json();
@@ -63,14 +76,45 @@ export async function POST(req: NextRequest) {
   }
 
   const { query, messages } = parsed;
+  const supabase = supabaseServer();
 
-  // 1-4. Recuperar chunks y construir el system prompt.
+  // 1. Resolver la conversación (existente y propia, o nueva).
+  let conversationId: string;
+  try {
+    if (parsed.conversationId) {
+      const owns = await userOwnsConversation(
+        supabase,
+        parsed.conversationId,
+        userId,
+      );
+      if (!owns) {
+        return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
+      }
+      conversationId = parsed.conversationId;
+    } else {
+      conversationId = await createConversation(supabase, userId);
+    }
+  } catch (err) {
+    console.error("[chat] Error con la conversación:", err);
+    return NextResponse.json(
+      { error: "No se pudo iniciar la conversación." },
+      { status: 500 },
+    );
+  }
+
+  // 2. Guardar el mensaje del usuario (genera título si es el primero).
+  try {
+    await saveMessage(supabase, { conversationId, role: "user", content: query });
+  } catch (err) {
+    console.error("[chat] Error al guardar el mensaje del usuario:", err);
+  }
+
+  // 3. Recuperar chunks y construir el system prompt.
   let sources: Source[] = [];
   try {
     sources = await retrieveRelevantChunks(query, 5);
   } catch (err) {
     console.error("[chat] Error al recuperar chunks:", err);
-    // Continuamos sin contexto: el modelo usará su conocimiento general.
   }
 
   const context = buildContext(sources);
@@ -90,8 +134,11 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
       };
 
+      // Al inicio: informar del conversationId (para que el frontend ajuste la URL).
+      send({ type: "conversation_id", conversationId });
+
+      let answer = "";
       try {
-        // 6. Llamada a OpenAI con streaming.
         const completion = await openai.chat.completions.create({
           model: CHAT_MODEL,
           messages: chatMessages,
@@ -99,15 +146,14 @@ export async function POST(req: NextRequest) {
           stream: true,
         });
 
-        // 7. Reenviar cada fragmento de texto al cliente.
         for await (const part of completion) {
           const delta = part.choices[0]?.delta?.content;
           if (delta) {
+            answer += delta;
             send({ type: "text", content: delta });
           }
         }
 
-        // 8. Enviar las fuentes usadas y el evento de fin.
         send({ type: "sources", sources });
         send({ type: "done" });
       } catch (err) {
@@ -115,6 +161,19 @@ export async function POST(req: NextRequest) {
         const message = err instanceof Error ? err.message : "Error desconocido.";
         send({ type: "error", error: message });
       } finally {
+        // 4. Guardar la respuesta del asistente (si se generó algo).
+        if (answer.trim()) {
+          try {
+            await saveMessage(supabase, {
+              conversationId,
+              role: "assistant",
+              content: answer,
+              sources,
+            });
+          } catch (saveErr) {
+            console.error("[chat] Error al guardar la respuesta:", saveErr);
+          }
+        }
         controller.close();
       }
     },

@@ -32,6 +32,7 @@ const CATEGORIES = [
   "salud",
   "decesos",
   "viaje",
+  "rc",
   "general",
 ] as const;
 

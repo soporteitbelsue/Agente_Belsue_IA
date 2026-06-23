@@ -20,6 +20,20 @@ export default function AdminPage() {
           agente.
         </p>
       </div>
+
+      {/* Pestañas */}
+      <div className="flex gap-1 border-b border-gray-200">
+        <span className="border-b-2 border-belsue px-4 py-2 text-sm font-semibold text-belsue">
+          Documentos
+        </span>
+        <Link
+          href="/admin/metrics"
+          className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
+        >
+          Métricas
+        </Link>
+      </div>
+
       <UploadForm />
       <DocumentList />
     </div>

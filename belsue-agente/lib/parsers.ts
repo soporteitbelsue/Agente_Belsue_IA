@@ -17,6 +17,59 @@ function cleanText(text: string): string {
 }
 
 /**
+ * Render personalizado para pdf-parse. Muchos PDFs no incluyen espacios
+ * explícitos entre palabras; reconstruimos los espacios y los saltos de
+ * línea a partir de la posición (coordenadas) de cada fragmento de texto.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function renderPageWithSpaces(pageData: any): Promise<string> {
+  return pageData
+    .getTextContent({ normalizeWhitespace: true, disableCombineTextItems: false })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .then((textContent: any) => {
+      let text = "";
+      let lastX: number | null = null;
+      let lastY: number | null = null;
+      let lastWidth = 0;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const item of textContent.items as any[]) {
+        const str: string = item.str ?? "";
+        const x: number = item.transform?.[4] ?? 0;
+        const y: number = item.transform?.[5] ?? 0;
+        const fontHeight: number = item.height || 8;
+
+        if (lastY !== null && Math.abs(y - lastY) > fontHeight * 0.5) {
+          // Cambio de línea vertical.
+          if (!text.endsWith("\n")) text += "\n";
+        } else if (lastX !== null) {
+          // Mismo renglón: si hay hueco horizontal, falta un espacio.
+          const gap = x - (lastX + lastWidth);
+          if (
+            gap > fontHeight * 0.2 &&
+            !text.endsWith(" ") &&
+            !text.endsWith("\n") &&
+            !str.startsWith(" ")
+          ) {
+            text += " ";
+          }
+        }
+
+        text += str;
+        lastX = x;
+        lastY = y;
+        lastWidth = item.width ?? 0;
+
+        if (item.hasEOL) {
+          if (!text.endsWith("\n")) text += "\n";
+          lastX = null;
+        }
+      }
+      return text;
+    });
+}
+
+/**
  * Extrae el texto plano de un archivo soportado (PDF, DOCX o TXT).
  */
 export async function extractTextFromFile(
@@ -30,7 +83,7 @@ export async function extractTextFromFile(
       // Import dinámico: pdf-parse ejecuta código al cargarse.
       const pdfParse = (await import("pdf-parse")).default;
       const buffer = await readFile(filePath);
-      const data = await pdfParse(buffer);
+      const data = await pdfParse(buffer, { pagerender: renderPageWithSpaces });
       return cleanText(data.text);
     }
     case "docx": {

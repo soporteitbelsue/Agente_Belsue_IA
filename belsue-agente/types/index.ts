@@ -1,4 +1,44 @@
+import type { DefaultSession } from "next-auth";
+
 export type FileType = "pdf" | "docx" | "txt";
+
+export type UserRole = "asesor" | "admin";
+
+/** Refleja la tabla `users` de Supabase (sin password_hash). */
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  department?: string;
+  is_active: boolean;
+  created_at: string;
+  last_login?: string;
+}
+
+// --- Augmentación de los tipos de NextAuth para incluir id, role y department ---
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role: UserRole;
+      department?: string;
+    } & DefaultSession["user"];
+  }
+  interface User {
+    id: string;
+    role: UserRole;
+    department?: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: UserRole;
+    department?: string;
+  }
+}
 
 export type DocumentCategory =
   | "auto"
@@ -8,6 +48,7 @@ export type DocumentCategory =
   | "salud"
   | "decesos"
   | "viaje"
+  | "rc"
   | "general";
 
 /** Refleja la tabla `documents` de Supabase. */
@@ -56,6 +97,47 @@ export interface UploadDocumentPayload {
   description?: string;
   category?: string;
   company?: string;
+}
+
+// --- Historial de conversaciones ---
+export interface Conversation {
+  id: string;
+  user_id: string;
+  title: string | null;
+  message_count: number;
+  last_message_at: string;
+  created_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: Source[];
+  created_at: string;
+}
+
+export interface ConversationWithMessages extends Conversation {
+  messages: Message[];
+}
+
+// --- Métricas (panel de administración) ---
+export interface DayMetrics {
+  day: string;
+  total_conversations: number;
+  active_users: number;
+  total_messages: number;
+  avg_messages_per_conversation: number;
+}
+
+export interface UserMetrics {
+  user_id: string;
+  user_name: string;
+  department: string | null;
+  total_conversations: number;
+  total_messages: number;
+  last_active: string | null;
 }
 
 /** Fila devuelta por la función SQL `match_chunks`. */

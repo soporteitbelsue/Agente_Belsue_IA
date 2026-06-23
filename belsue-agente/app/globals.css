@@ -7,6 +7,8 @@
   --foreground: #1a1a1a;
   --belsue: #8a0c3c;
   --belsue-dark: #6d0a30;
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f7f7f8;
 }
 
 html,

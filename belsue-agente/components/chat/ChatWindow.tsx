@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChatMessage, Source } from "@/types";
+import type { ChatMessage, Message, Source } from "@/types";
 import MessageBubble from "./MessageBubble";
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -23,7 +23,15 @@ const SUGGESTIONS = [
 
 const MAX_TEXTAREA_LINES = 4;
 
-export default function ChatWindow() {
+interface Props {
+  conversationId?: string;
+  onConversationCreated?: (id: string) => void;
+}
+
+export default function ChatWindow({
+  conversationId,
+  onConversationCreated,
+}: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,22 +39,58 @@ export default function ChatWindow() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // Índice del mensaje que se está recibiendo por streaming.
   const [streamingIndex, setStreamingIndex] = useState<number | null>(null);
-  // Última consulta del usuario, para poder reintentar tras un error.
   const lastQueryRef = useRef<string | null>(null);
+  // Id de la conversación activa en este panel (puede crearse al enviar).
+  const currentIdRef = useRef<string | null>(conversationId ?? null);
+
+  // Cargar la conversación cuando cambia el id de la URL.
+  useEffect(() => {
+    // Ya estamos en esta conversación (p. ej. recién creada): no recargar.
+    if ((conversationId ?? null) === currentIdRef.current) return;
+    currentIdRef.current = conversationId ?? null;
+
+    if (!conversationId) {
+      setMessages([WELCOME_MESSAGE]);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/conversations/${conversationId}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.ok) {
+          const msgs: ChatMessage[] = (data.conversation.messages ?? []).map(
+            (m: Message) => ({
+              role: m.role,
+              content: m.content,
+              sources: m.sources,
+            }),
+          );
+          setMessages(msgs.length ? msgs : [WELCOME_MESSAGE]);
+        }
+      } catch {
+        /* silencioso */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // Auto-expansión del textarea hasta MAX_TEXTAREA_LINES líneas.
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
     const lineHeight = parseInt(getComputedStyle(el).lineHeight || "20", 10);
-    const maxHeight = lineHeight * MAX_TEXTAREA_LINES + 16; // + padding
+    const maxHeight = lineHeight * MAX_TEXTAREA_LINES + 16;
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
   }, []);
 
@@ -54,135 +98,145 @@ export default function ChatWindow() {
     autoResize();
   }, [input, autoResize]);
 
-  const runQuery = useCallback(async (text: string) => {
-    setError(null);
-    setIsLoading(true);
-    lastQueryRef.current = text;
+  const runQuery = useCallback(
+    async (text: string) => {
+      setError(null);
+      setIsLoading(true);
+      lastQueryRef.current = text;
 
-    // Historial enviado a la API (excluye el mensaje de bienvenida inicial).
-    let assistantIndex = -1;
-    let history: { role: "user" | "assistant"; content: string }[] = [];
+      let assistantIndex = -1;
+      let history: { role: "user" | "assistant"; content: string }[] = [];
 
-    setMessages((prev) => {
-      history = prev
-        .slice(1)
-        .map((m) => ({ role: m.role, content: m.content }));
-      const next: ChatMessage[] = [
-        ...prev,
-        { role: "user", content: text },
-        { role: "assistant", content: "" },
-      ];
-      assistantIndex = next.length - 1;
-      return next;
-    });
-
-    setStreamingIndex(assistantIndex);
-
-    let receivedDone = false;
-    let receivedText = false;
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: text, messages: history }),
+      setMessages((prev) => {
+        // El historial excluye el mensaje de bienvenida sintético.
+        history = prev
+          .filter((m) => m !== WELCOME_MESSAGE)
+          .map((m) => ({ role: m.role, content: m.content }));
+        const next: ChatMessage[] = [
+          ...prev.filter((m) => m !== WELCOME_MESSAGE),
+          { role: "user", content: text },
+          { role: "assistant", content: "" },
+        ];
+        assistantIndex = next.length - 1;
+        return next;
       });
 
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "No se pudo obtener respuesta.");
-      }
+      setStreamingIndex(assistantIndex);
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+      let receivedDone = false;
+      let receivedText = false;
 
-      const apply = (payload: {
-        type: string;
-        content?: string;
-        sources?: Source[];
-        error?: string;
-      }) => {
-        if (payload.type === "text" && payload.content) {
-          receivedText = true;
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: text,
+            messages: history,
+            conversationId: currentIdRef.current ?? undefined,
+          }),
+        });
+
+        if (!res.ok || !res.body) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? "No se pudo obtener respuesta.");
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        const apply = (payload: {
+          type: string;
+          content?: string;
+          sources?: Source[];
+          error?: string;
+          conversationId?: string;
+        }) => {
+          if (payload.type === "conversation_id" && payload.conversationId) {
+            // Conversación nueva: fijar id y avisar al contenedor (URL).
+            if (!currentIdRef.current) {
+              currentIdRef.current = payload.conversationId;
+              onConversationCreated?.(payload.conversationId);
+            }
+          } else if (payload.type === "text" && payload.content) {
+            receivedText = true;
+            setMessages((prev) => {
+              const next = [...prev];
+              const cur = next[assistantIndex];
+              if (cur) {
+                next[assistantIndex] = {
+                  ...cur,
+                  content: cur.content + payload.content,
+                };
+              }
+              return next;
+            });
+          } else if (payload.type === "sources") {
+            setMessages((prev) => {
+              const next = [...prev];
+              const cur = next[assistantIndex];
+              if (cur) next[assistantIndex] = { ...cur, sources: payload.sources };
+              return next;
+            });
+          } else if (payload.type === "done") {
+            receivedDone = true;
+          } else if (payload.type === "error") {
+            throw new Error(payload.error ?? "Error en el stream.");
+          }
+        };
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split("\n\n");
+          buffer = events.pop() ?? "";
+          for (const evt of events) {
+            const dataLine = evt.split("\n").find((l) => l.startsWith("data: "));
+            if (!dataLine) continue;
+            try {
+              apply(JSON.parse(dataLine.slice("data: ".length)));
+            } catch {
+              /* fragmento incompleto */
+            }
+          }
+        }
+
+        if (!receivedDone) {
           setMessages((prev) => {
             const next = [...prev];
             const cur = next[assistantIndex];
-            if (cur) {
-              next[assistantIndex] = {
-                ...cur,
-                content: cur.content + payload.content,
-              };
+            if (cur && cur.role === "assistant") {
+              next[assistantIndex] = { ...cur, incomplete: true };
             }
             return next;
           });
-        } else if (payload.type === "sources") {
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error desconocido.");
+        if (!receivedText) {
+          setMessages((prev) => prev.filter((_, i) => i !== assistantIndex));
+        } else {
           setMessages((prev) => {
             const next = [...prev];
             const cur = next[assistantIndex];
-            if (cur) next[assistantIndex] = { ...cur, sources: payload.sources };
+            if (cur && cur.role === "assistant") {
+              next[assistantIndex] = { ...cur, incomplete: true };
+            }
             return next;
           });
-        } else if (payload.type === "done") {
-          receivedDone = true;
-        } else if (payload.type === "error") {
-          throw new Error(payload.error ?? "Error en el stream.");
         }
-      };
-
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const events = buffer.split("\n\n");
-        buffer = events.pop() ?? "";
-
-        for (const evt of events) {
-          const dataLine = evt
-            .split("\n")
-            .find((l) => l.startsWith("data: "));
-          if (!dataLine) continue;
-          try {
-            apply(JSON.parse(dataLine.slice("data: ".length)));
-          } catch {
-            /* fragmento incompleto: ignorar */
-          }
-        }
+      } finally {
+        setIsLoading(false);
+        setStreamingIndex(null);
+        // Refrescar el sidebar (título/contador/nueva conversación).
+        window.dispatchEvent(new CustomEvent("conversations-changed"));
       }
-
-      // Si el stream terminó sin un evento 'done', marca incompleto.
-      if (!receivedDone) {
-        setMessages((prev) => {
-          const next = [...prev];
-          const cur = next[assistantIndex];
-          if (cur && cur.role === "assistant") {
-            next[assistantIndex] = { ...cur, incomplete: true };
-          }
-          return next;
-        });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido.");
-      // Elimina la burbuja del asistente si no llegó nada de texto.
-      if (!receivedText) {
-        setMessages((prev) => prev.filter((_, i) => i !== assistantIndex));
-      } else {
-        setMessages((prev) => {
-          const next = [...prev];
-          const cur = next[assistantIndex];
-          if (cur && cur.role === "assistant") {
-            next[assistantIndex] = { ...cur, incomplete: true };
-          }
-          return next;
-        });
-      }
-    } finally {
-      setIsLoading(false);
-      setStreamingIndex(null);
-    }
-  }, []);
+    },
+    [onConversationCreated],
+  );
 
   const sendMessage = useCallback(
     (text: string) => {
@@ -207,23 +261,17 @@ export default function ChatWindow() {
   };
 
   const handleRetry = () => {
-    if (lastQueryRef.current) {
-      void runQuery(lastQueryRef.current);
-    }
+    if (lastQueryRef.current) void runQuery(lastQueryRef.current);
   };
 
-  const showSuggestions = messages.length === 1 && !isLoading;
+  const showSuggestions =
+    messages.length === 1 && messages[0] === WELCOME_MESSAGE && !isLoading;
 
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4">
-      {/* Zona de mensajes */}
       <div className="flex-1 space-y-5 overflow-y-auto py-6">
         {messages.map((m, i) => (
-          <MessageBubble
-            key={i}
-            message={m}
-            isStreaming={streamingIndex === i}
-          />
+          <MessageBubble key={i} message={m} isStreaming={streamingIndex === i} />
         ))}
 
         {showSuggestions && (
@@ -255,7 +303,6 @@ export default function ChatWindow() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <form
         onSubmit={handleSubmit}
         className="sticky bottom-0 flex items-end gap-2 border-t border-gray-200 bg-white py-3"

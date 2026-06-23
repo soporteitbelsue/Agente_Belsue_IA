@@ -11,6 +11,7 @@ const CATEGORIES = [
   { value: "salud", label: "Salud" },
   { value: "decesos", label: "Decesos" },
   { value: "viaje", label: "Asistencia en viaje" },
+  { value: "rc", label: "Responsabilidad Civil" },
 ];
 
 const ACCEPTED_EXT = [".pdf", ".docx", ".txt"];
