@@ -23,7 +23,7 @@ interface DocumentRow {
  *   - company: filtra por compañía (parcial, case-insensitive)
  */
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
   try {

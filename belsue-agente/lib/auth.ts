@@ -1,30 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 
 /**
- * Verifica la clave de administración en una API route.
+ * Verifica que la petición la hace un usuario con rol 'admin' (sesión NextAuth).
  *
- * Acepta la clave por header `X-Admin-Key` o por la cookie `admin_key`
- * (la que deja el middleware tras visitar /admin?key=...).
- *
- * - Si ADMIN_KEY no está configurada: permite el acceso (modo desarrollo).
- * - Si la clave no coincide: devuelve una respuesta 401.
- * - Si todo está bien: devuelve null (continúa la ejecución).
+ * - Sin sesión → 401.
+ * - Con sesión pero sin rol admin → 403.
+ * - Admin → devuelve null (continúa la ejecución).
  */
-export function requireAdmin(req: NextRequest): NextResponse | null {
-  const adminKey = process.env.ADMIN_KEY;
+export async function requireAdmin(): Promise<NextResponse | null> {
+  const session = await getServerSession(authOptions);
 
-  // Sin clave configurada → acceso abierto (desarrollo).
-  if (!adminKey) return null;
-
-  const fromHeader = req.headers.get("x-admin-key");
-  const fromCookie = req.cookies.get("admin_key")?.value;
-
-  if (fromHeader === adminKey || fromCookie === adminKey) {
-    return null;
+  if (!session?.user) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   }
-
-  return NextResponse.json(
-    { error: "No autorizado. Acceso restringido a administración." },
-    { status: 401 },
-  );
+  if (session.user.role !== "admin") {
+    return NextResponse.json(
+      { error: "Acceso restringido a administración." },
+      { status: 403 },
+    );
+  }
+  return null;
 }

@@ -21,18 +21,18 @@ function cleanText(text: string): string {
  * explícitos entre palabras; reconstruimos los espacios y los saltos de
  * línea a partir de la posición (coordenadas) de cada fragmento de texto.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line
 function renderPageWithSpaces(pageData: any): Promise<string> {
   return pageData
     .getTextContent({ normalizeWhitespace: true, disableCombineTextItems: false })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line
     .then((textContent: any) => {
       let text = "";
       let lastX: number | null = null;
       let lastY: number | null = null;
       let lastWidth = 0;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line
       for (const item of textContent.items as any[]) {
         const str: string = item.str ?? "";
         const x: number = item.transform?.[4] ?? 0;

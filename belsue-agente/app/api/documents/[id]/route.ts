@@ -11,10 +11,10 @@ export const runtime = "nodejs";
  * y elimina el archivo físico del disco.
  */
 export async function DELETE(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
   try {

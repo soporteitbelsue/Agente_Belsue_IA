@@ -19,7 +19,7 @@ const createSchema = z.object({
 
 /** GET /api/admin/users — lista de usuarios (sin password_hash). */
 export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
   try {
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/admin/users — crea un usuario. */
 export async function POST(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
   try {

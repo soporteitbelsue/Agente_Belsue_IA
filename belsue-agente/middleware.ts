@@ -3,64 +3,43 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Protecciones:
- *  - /admin  → clave ADMIN_KEY (header X-Admin-Key, cookie admin_key, o
- *              ?key=... que guarda la cookie). Sin auth de usuario.
- *  - /chat   → sesión válida de NextAuth (login de asesor).
- *  - /       → redirige a /chat.
+ * Acceso unificado por rol (sesión NextAuth):
+ *  - /        → según rol: admin → /admin, asesor → /chat; sin sesión → /login
+ *  - /chat    → cualquier usuario autenticado
+ *  - /admin   → solo usuarios con rol 'admin'
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const token = await getToken({ req: request });
 
-  // --- /admin: protección por ADMIN_KEY ---
-  if (pathname.startsWith("/admin")) {
-    const adminKey = process.env.ADMIN_KEY;
-
-    // Sin ADMIN_KEY configurada → acceso abierto (modo desarrollo).
-    if (!adminKey) return NextResponse.next();
-
-    const keyFromQuery = request.nextUrl.searchParams.get("key");
-    const keyFromHeader = request.headers.get("x-admin-key");
-    const keyFromCookie = request.cookies.get("admin_key")?.value;
-
-    // Acceso por query param: valida, guarda cookie y limpia la URL.
-    if (keyFromQuery) {
-      if (keyFromQuery === adminKey) {
-        const url = request.nextUrl.clone();
-        url.searchParams.delete("key");
-        const res = NextResponse.redirect(url);
-        res.cookies.set("admin_key", adminKey, {
-          httpOnly: true,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 60 * 24 * 7, // 7 días
-        });
-        return res;
-      }
-      return NextResponse.redirect(new URL("/chat", request.url));
-    }
-
-    if (keyFromHeader === adminKey || keyFromCookie === adminKey) {
-      return NextResponse.next();
-    }
-
-    return NextResponse.redirect(new URL("/chat", request.url));
+  // --- raíz: deriva según el estado de sesión y el rol ---
+  if (pathname === "/") {
+    if (!token) return NextResponse.redirect(new URL("/login", request.url));
+    const dest = token.role === "admin" ? "/admin" : "/chat";
+    return NextResponse.redirect(new URL(dest, request.url));
   }
 
-  // --- /chat: requiere sesión NextAuth ---
+  // --- /admin: requiere sesión y rol admin ---
+  if (pathname.startsWith("/admin")) {
+    if (!token) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (token.role !== "admin") {
+      return NextResponse.redirect(new URL("/chat", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // --- /chat: requiere sesión ---
   if (pathname.startsWith("/chat")) {
-    const token = await getToken({ req: request });
     if (!token) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
     return NextResponse.next();
-  }
-
-  // --- raíz ---
-  if (pathname === "/") {
-    return NextResponse.redirect(new URL("/chat", request.url));
   }
 
   return NextResponse.next();

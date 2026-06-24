@@ -24,7 +24,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
   try {
@@ -68,7 +68,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
   try {

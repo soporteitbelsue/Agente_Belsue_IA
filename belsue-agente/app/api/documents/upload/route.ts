@@ -56,7 +56,7 @@ const uploadSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
   let filePath: string | null = null;

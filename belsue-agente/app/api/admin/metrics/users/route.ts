@@ -6,8 +6,8 @@ import type { UserMetrics } from "@/types";
 export const runtime = "nodejs";
 
 /** GET /api/admin/metrics/users — uso por asesor (vista user_metrics). */
-export async function GET(req: NextRequest) {
-  const unauthorized = requireAdmin(req);
+export async function GET(_req: NextRequest) {
+  const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
   try {

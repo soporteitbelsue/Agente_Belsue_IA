@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage, Message, Source } from "@/types";
 import MessageBubble from "./MessageBubble";
+import SourcesPanel from "./SourcesPanel";
 
 const WELCOME_MESSAGE: ChatMessage = {
   role: "assistant",
@@ -41,6 +42,9 @@ export default function ChatWindow({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [streamingIndex, setStreamingIndex] = useState<number | null>(null);
   const lastQueryRef = useRef<string | null>(null);
+  // Mensaje cuyas fuentes están "fijadas" en el panel (null = seguir la última).
+  const [pinnedIndex, setPinnedIndex] = useState<number | null>(null);
+  const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
   // Id de la conversación activa en este panel (puede crearse al enviar).
   const currentIdRef = useRef<string | null>(conversationId ?? null);
 
@@ -102,6 +106,7 @@ export default function ChatWindow({
     async (text: string) => {
       setError(null);
       setIsLoading(true);
+      setPinnedIndex(null); // el panel vuelve a seguir la última respuesta
       lastQueryRef.current = text;
 
       let assistantIndex = -1;
@@ -267,64 +272,114 @@ export default function ChatWindow({
   const showSuggestions =
     messages.length === 1 && messages[0] === WELCOME_MESSAGE && !isLoading;
 
+  // Índice del último mensaje del asistente que tiene fuentes.
+  const latestSourceIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if ((messages[i]?.sources?.length ?? 0) > 0) return i;
+    }
+    return null;
+  }, [messages]);
+
+  // Mensaje cuyas fuentes se muestran: el fijado o, si no, el último con fuentes.
+  const activeSourceIndex = pinnedIndex ?? latestSourceIndex;
+  const displayedSources =
+    activeSourceIndex !== null
+      ? (messages[activeSourceIndex]?.sources ?? null)
+      : null;
+
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4">
-      <div className="flex-1 space-y-5 overflow-y-auto py-6">
-        {messages.map((m, i) => (
-          <MessageBubble key={i} message={m} isStreaming={streamingIndex === i} />
-        ))}
-
-        {showSuggestions && (
-          <div className="flex flex-wrap gap-2 pt-2">
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => sendMessage(s)}
-                className="rounded-full border border-belsue/30 bg-belsue/5 px-3 py-1.5 text-sm text-belsue transition hover:bg-belsue/10"
-              >
-                {s}
-              </button>
+    <div className="flex h-full min-h-0">
+      {/* Columna del chat */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4">
+          <div className="flex-1 space-y-5 overflow-y-auto py-6">
+            {messages.map((m, i) => (
+              <MessageBubble
+                key={i}
+                message={m}
+                isStreaming={streamingIndex === i}
+                sourcesActive={activeSourceIndex === i}
+                onShowSources={() => {
+                  setPinnedIndex(i);
+                  setSourcesDrawerOpen(true);
+                }}
+              />
             ))}
-          </div>
-        )}
 
-        {error && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-            <span>{error}</span>
+            {showSuggestions && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => sendMessage(s)}
+                    className="rounded-full border border-belsue/30 bg-belsue/5 px-3 py-1.5 text-sm text-belsue transition hover:bg-belsue/10"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {error && (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                <span>{error}</span>
+                <button
+                  onClick={handleRetry}
+                  className="shrink-0 rounded bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700"
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="sticky bottom-0 flex items-end gap-2 border-t border-gray-200 bg-white py-3"
+          >
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Escribe tu consulta… (Enter para enviar, Shift+Enter para nueva línea)"
+              className="max-h-40 flex-1 resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm leading-5 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+              disabled={isLoading}
+            />
             <button
-              onClick={handleRetry}
-              className="shrink-0 rounded bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700"
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="flex h-11 shrink-0 items-center rounded-xl bg-belsue px-5 text-sm font-medium text-white transition hover:bg-belsue-700 disabled:opacity-40"
             >
-              Reintentar
+              {isLoading ? "…" : "Enviar"}
             </button>
-          </div>
-        )}
-
-        <div ref={bottomRef} />
+          </form>
+        </div>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="sticky bottom-0 flex items-end gap-2 border-t border-gray-200 bg-white py-3"
-      >
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          rows={1}
-          placeholder="Escribe tu consulta… (Enter para enviar, Shift+Enter para nueva línea)"
-          className="max-h-40 flex-1 resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm leading-5 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-          className="flex h-11 shrink-0 items-center rounded-xl bg-belsue px-5 text-sm font-medium text-white transition hover:bg-belsue-700 disabled:opacity-40"
-        >
-          {isLoading ? "…" : "Enviar"}
-        </button>
-      </form>
+      {/* Panel de fuentes (margen derecho, desktop) */}
+      <aside className="hidden w-80 shrink-0 border-l border-gray-200 lg:block">
+        <SourcesPanel sources={displayedSources} />
+      </aside>
+
+      {/* Panel de fuentes como drawer (móvil/tablet) */}
+      {sourcesDrawerOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setSourcesDrawerOpen(false)}
+          />
+          <aside className="absolute right-0 top-0 h-full w-[85%] max-w-[340px] border-l border-gray-200 shadow-xl">
+            <SourcesPanel
+              sources={displayedSources}
+              onClose={() => setSourcesDrawerOpen(false)}
+            />
+          </aside>
+        </div>
+      )}
     </div>
   );
 }

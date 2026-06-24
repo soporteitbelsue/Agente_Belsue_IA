@@ -2,12 +2,13 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/chat";
+  // Si viene un callbackUrl explícito lo respetamos; si no, derivamos por rol.
+  const callbackUrl = searchParams.get("callbackUrl");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +34,13 @@ function LoginForm() {
         return;
       }
 
-      router.push(callbackUrl);
+      // Derivar destino: callbackUrl explícito o según el rol del usuario.
+      let dest = callbackUrl;
+      if (!dest) {
+        const session = await getSession();
+        dest = session?.user?.role === "admin" ? "/admin" : "/chat";
+      }
+      router.push(dest);
       router.refresh();
     } catch {
       setError("No se ha podido iniciar sesión. Inténtalo de nuevo.");
@@ -53,7 +60,7 @@ function LoginForm() {
 
       <div className="w-full max-w-[400px] rounded-xl border border-gray-100 bg-white p-6 shadow-lg">
         <p className="mb-5 text-center text-sm text-gray-500">
-          Accede con tu cuenta de asesor
+          Inicia sesión para continuar
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

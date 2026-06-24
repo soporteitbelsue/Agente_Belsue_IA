@@ -10,10 +10,10 @@ export const runtime = "nodejs";
  * Respuesta: { status: 'processing' | 'ready', chunkCount: number }
  */
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const unauthorized = requireAdmin(req);
+  const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
   try {
