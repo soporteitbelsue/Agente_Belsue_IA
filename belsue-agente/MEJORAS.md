@@ -35,9 +35,9 @@ Marca con `[x]` lo que se vaya completando y añade tus notas donde quieras.
 - [ ] **Revivir el glosario** 🟢 ⭐ — existe una tabla `glossary` (17 términos)
       que el código no usa. Mostrarla como sección consultable e inyectarla en
       el chat para que el agente entienda/explique jerga del sector.
-- [ ] **Valoración 👍 / 👎 en las respuestas** 🟢 ⭐ — la tabla `messages` ya
-      tiene una columna `feedback` preparada. Añadir los botones y un panel de
-      "respuestas marcadas como malas" para saber dónde falta conocimiento.
+- [x] **Valoración 👍 / 👎 en las respuestas** ✅ — botones en cada respuesta del
+      chat + panel en Métricas con las respuestas marcadas como poco útiles
+      (con la pregunta que las provocó) para saber dónde falta conocimiento.
 - [ ] **Preguntas sugeridas** 🟢 — botones de ejemplo en el chat vacío
       ("Comparar multirriesgo hostelería", "Garantías clave en decesos"…) para
       arrancar rápido.

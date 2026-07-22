@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase";
+
+// Debe coincidir con DOCUMENTS_BUCKET de lib/storage.ts.
+const DOCUMENTS_BUCKET = "documentos";
 
 const CATEGORIES = [
   { value: "general", label: "General" },
@@ -30,6 +34,11 @@ function stripExtension(filename: string): string {
   return dot > 0 ? filename.slice(0, dot) : filename;
 }
 
+function getExt(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  return dot >= 0 ? filename.slice(dot).toLowerCase() : "";
+}
+
 export default function UploadForm() {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
@@ -42,13 +51,6 @@ export default function UploadForm() {
   const [dragOver, setDragOver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
 
   function validateFile(f: File): string | null {
     const lower = f.name.toLowerCase();
@@ -86,31 +88,6 @@ export default function UploadForm() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function pollStatus(documentId: string) {
-    setStatus("processing");
-    if (pollRef.current) clearInterval(pollRef.current);
-
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/documents/${documentId}/status`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Error al consultar estado.");
-
-        if (data.status === "ready") {
-          if (pollRef.current) clearInterval(pollRef.current);
-          pollRef.current = null;
-          setStatus("success");
-          window.dispatchEvent(new CustomEvent("document-uploaded"));
-        }
-      } catch (err) {
-        if (pollRef.current) clearInterval(pollRef.current);
-        pollRef.current = null;
-        setError(err instanceof Error ? err.message : "Error al procesar.");
-        setStatus("error");
-      }
-    }, 3000);
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file) {
@@ -125,25 +102,53 @@ export default function UploadForm() {
     setError(null);
     setStatus("uploading");
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("name", name.trim());
-    if (description) formData.append("description", description);
-    if (company) formData.append("company", company);
-    formData.append("category", category);
-
     try {
-      const res = await fetch("/api/documents/upload", {
+      // 1. Pedir al servidor una URL firmada de subida (y registrar el doc).
+      const urlRes = await fetch("/api/documents/upload-url", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          ext: getExt(file.name),
+          fileSize: file.size,
+          description: description || undefined,
+          company: company || undefined,
+          category,
+        }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error ?? "Error al subir el documento.");
+      const urlData = await urlRes.json();
+      if (!urlRes.ok) {
+        throw new Error(urlData.error ?? "No se pudo preparar la subida.");
       }
+      const { documentId, path, token } = urlData as {
+        documentId: string;
+        path: string;
+        token: string;
+      };
+
+      // 2. Subir el archivo directamente a Supabase Storage.
+      const { error: upErr } = await supabaseBrowser()
+        .storage.from(DOCUMENTS_BUCKET)
+        .uploadToSignedUrl(path, token, file);
+      if (upErr) {
+        throw new Error(`Error al subir el archivo: ${upErr.message}`);
+      }
+
       // Notifica a la lista para que muestre el doc "Procesando…".
       window.dispatchEvent(new CustomEvent("document-uploaded"));
-      pollStatus(data.documentId as string);
+
+      // 3. Indexar (extraer texto + embeddings) en el servidor.
+      setStatus("processing");
+      const procRes = await fetch(`/api/documents/${documentId}/process`, {
+        method: "POST",
+      });
+      const procData = await procRes.json().catch(() => ({}));
+      if (!procRes.ok) {
+        throw new Error(procData.error ?? "Error al indexar el documento.");
+      }
+
+      setStatus("success");
+      window.dispatchEvent(new CustomEvent("document-uploaded"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido.");
       setStatus("error");

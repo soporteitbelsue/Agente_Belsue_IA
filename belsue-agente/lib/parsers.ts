@@ -70,10 +70,10 @@ function renderPageWithSpaces(pageData: any): Promise<string> {
 }
 
 /**
- * Extrae el texto plano de un archivo soportado (PDF, DOCX o TXT).
+ * Extrae el texto plano de un buffer en memoria (PDF, DOCX o TXT).
  */
-export async function extractTextFromFile(
-  filePath: string,
+export async function extractTextFromBuffer(
+  buffer: Buffer,
   fileType: string,
 ): Promise<string> {
   const type = fileType.toLowerCase() as FileType;
@@ -82,20 +82,29 @@ export async function extractTextFromFile(
     case "pdf": {
       // Import dinámico: pdf-parse ejecuta código al cargarse.
       const pdfParse = (await import("pdf-parse")).default;
-      const buffer = await readFile(filePath);
       const data = await pdfParse(buffer, { pagerender: renderPageWithSpaces });
       return cleanText(data.text);
     }
     case "docx": {
-      const buffer = await readFile(filePath);
       const result = await mammoth.extractRawText({ buffer });
       return cleanText(result.value);
     }
     case "txt": {
-      const text = await readFile(filePath, "utf-8");
-      return cleanText(text);
+      return cleanText(buffer.toString("utf-8"));
     }
     default:
       throw new Error(`Tipo de archivo no soportado: ${fileType}`);
   }
+}
+
+/**
+ * Extrae el texto plano de un archivo del disco (PDF, DOCX o TXT).
+ * Se conserva para compatibilidad; el flujo nuevo usa Storage + buffer.
+ */
+export async function extractTextFromFile(
+  filePath: string,
+  fileType: string,
+): Promise<string> {
+  const buffer = await readFile(filePath);
+  return extractTextFromBuffer(buffer, fileType);
 }

@@ -11,8 +11,16 @@ interface Overview {
     total_conversations: number;
     total_messages: number;
     total_users_active: number;
-    avg_response_quality: number | null;
+    feedback_positive: number;
+    feedback_negative: number;
   };
+}
+
+interface FeedbackItem {
+  id: string;
+  question: string | null;
+  response: string;
+  created_at: string;
 }
 
 type SortKey = "user_name" | "department" | "total_conversations" | "total_messages" | "last_active";
@@ -31,6 +39,7 @@ function Card({ label, value }: { label: string; value: string }) {
 export default function MetricsPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [users, setUsers] = useState<UserMetrics[]>([]);
+  const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
@@ -41,16 +50,19 @@ export default function MetricsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [oRes, uRes] = await Promise.all([
+        const [oRes, uRes, fRes] = await Promise.all([
           fetch("/api/admin/metrics/overview"),
           fetch("/api/admin/metrics/users"),
+          fetch("/api/admin/metrics/feedback"),
         ]);
         const oData = await oRes.json();
         const uData = await uRes.json();
+        const fData = await fRes.json();
         if (!oRes.ok) throw new Error(oData.error ?? "Error al cargar métricas.");
         if (!uRes.ok) throw new Error(uData.error ?? "Error al cargar usuarios.");
         setOverview(oData);
         setUsers(uData.users ?? []);
+        if (fRes.ok) setFeedbackItems(fData.items ?? []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error desconocido.");
       } finally {
@@ -233,6 +245,60 @@ export default function MetricsPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Valoraciones (feedback) */}
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-700">
+                Valoraciones de las respuestas
+              </h2>
+              <div className="flex gap-3 text-sm">
+                <span className="font-medium text-green-600">
+                  👍 {overview.totals.feedback_positive}
+                </span>
+                <span className="font-medium text-red-600">
+                  👎 {overview.totals.feedback_negative}
+                </span>
+              </div>
+            </div>
+
+            <p className="mb-3 text-xs text-gray-500">
+              Respuestas marcadas como poco útiles por el equipo. Úsalas para
+              detectar qué conocimiento falta y añadir notas o documentos.
+            </p>
+
+            {feedbackItems.length === 0 ? (
+              <p className="py-4 text-center text-sm text-gray-400">
+                Ninguna respuesta marcada como poco útil. 🎉
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {feedbackItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className="rounded-md border border-red-100 bg-red-50/50 p-3"
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-red-400">
+                        👎 Poco útil
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {new Date(item.created_at).toLocaleDateString("es-ES")}
+                      </span>
+                    </div>
+                    {item.question && (
+                      <p className="mb-1 text-sm font-medium text-gray-700">
+                        P: {item.question}
+                      </p>
+                    )}
+                    <p className="line-clamp-3 text-sm text-gray-500">
+                      R: {item.response}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </>
       )}

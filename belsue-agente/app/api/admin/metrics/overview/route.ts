@@ -51,13 +51,24 @@ export async function GET(_req: NextRequest) {
       (sumRows ?? []).map((r) => r.user_id),
     ).size;
 
+    // Valoraciones (feedback) de las respuestas.
+    const { count: fbPositive } = await supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("feedback", 1);
+    const { count: fbNegative } = await supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("feedback", -1);
+
     return NextResponse.json({
       days,
       totals: {
         total_conversations: totalConversations ?? 0,
         total_messages: totalMessages,
         total_users_active: totalUsersActive,
-        avg_response_quality: null, // pendiente (feedback futuro)
+        feedback_positive: fbPositive ?? 0,
+        feedback_negative: fbNegative ?? 0,
       },
     });
   } catch (err) {

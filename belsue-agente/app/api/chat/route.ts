@@ -163,15 +163,17 @@ export async function POST(req: NextRequest) {
         const message = err instanceof Error ? err.message : "Error desconocido.";
         send({ type: "error", error: message });
       } finally {
-        // 4. Guardar la respuesta del asistente (si se generó algo).
+        // 4. Guardar la respuesta del asistente (si se generó algo) y enviar su
+        //    id al cliente para poder valorarla (feedback).
         if (answer.trim()) {
           try {
-            await saveMessage(supabase, {
+            const saved = await saveMessage(supabase, {
               conversationId,
               role: "assistant",
               content: answer,
               sources,
             });
+            send({ type: "message_id", messageId: saved.id });
           } catch (saveErr) {
             console.error("[chat] Error al guardar la respuesta:", saveErr);
           }

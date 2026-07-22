@@ -72,6 +72,8 @@ export default function ChatWindow({
               role: m.role,
               content: m.content,
               sources: m.sources,
+              id: m.id,
+              feedback: m.feedback ?? null,
             }),
           );
           setMessages(msgs.length ? msgs : [WELCOME_MESSAGE]);
@@ -157,6 +159,7 @@ export default function ChatWindow({
           sources?: Source[];
           error?: string;
           conversationId?: string;
+          messageId?: string;
         }) => {
           if (payload.type === "conversation_id" && payload.conversationId) {
             // Conversación nueva: fijar id y avisar al contenedor (URL).
@@ -182,6 +185,13 @@ export default function ChatWindow({
               const next = [...prev];
               const cur = next[assistantIndex];
               if (cur) next[assistantIndex] = { ...cur, sources: payload.sources };
+              return next;
+            });
+          } else if (payload.type === "message_id" && payload.messageId) {
+            setMessages((prev) => {
+              const next = [...prev];
+              const cur = next[assistantIndex];
+              if (cur) next[assistantIndex] = { ...cur, id: payload.messageId };
               return next;
             });
           } else if (payload.type === "done") {
@@ -269,6 +279,20 @@ export default function ChatWindow({
     if (lastQueryRef.current) void runQuery(lastQueryRef.current);
   };
 
+  // Guarda (o quita) la valoración de una respuesta. Actualización optimista.
+  const submitFeedback = useCallback((id: string, value: 1 | -1 | null) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, feedback: value } : m)),
+    );
+    fetch(`/api/messages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    }).catch(() => {
+      /* si falla, se recupera al recargar la conversación */
+    });
+  }, []);
+
   const showSuggestions =
     messages.length === 1 && messages[0] === WELCOME_MESSAGE && !isLoading;
 
@@ -303,6 +327,7 @@ export default function ChatWindow({
                   setPinnedIndex(i);
                   setSourcesDrawerOpen(true);
                 }}
+                onFeedback={submitFeedback}
               />
             ))}
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unlink } from "node:fs/promises";
 import { supabaseServer } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
+import { removeFile } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -49,11 +49,9 @@ export async function DELETE(
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
-    // Borra el archivo del disco (best-effort).
+    // Borra el archivo de Storage (best-effort). Las notas no tienen archivo.
     if (doc.file_path) {
-      await unlink(doc.file_path).catch((err) =>
-        console.error("[delete] No se pudo borrar el archivo del disco:", err),
-      );
+      await removeFile(doc.file_path);
     }
 
     return NextResponse.json({ success: true });

@@ -1,6 +1,6 @@
 import { openai, EMBEDDING_MODEL } from "@/lib/openai";
 import { supabaseServer } from "@/lib/supabase";
-import { extractTextFromFile } from "@/lib/parsers";
+import { extractTextFromBuffer, extractTextFromFile } from "@/lib/parsers";
 
 /**
  * Divide el texto en fragmentos de ~chunkSize caracteres con solapamiento.
@@ -129,6 +129,19 @@ export async function processAndStoreDocument(
   fileType: string,
 ): Promise<void> {
   const text = await extractTextFromFile(filePath, fileType);
+  await storeTextAsChunks(documentId, text);
+}
+
+/**
+ * Indexa un documento a partir de su buffer en memoria (descargado de Storage):
+ * extrae texto, lo trocea, genera embeddings y los guarda en `document_chunks`.
+ */
+export async function processAndStoreBuffer(
+  documentId: string,
+  buffer: Buffer,
+  fileType: string,
+): Promise<void> {
+  const text = await extractTextFromBuffer(buffer, fileType);
   await storeTextAsChunks(documentId, text);
 }
 

@@ -87,12 +87,19 @@ export interface Source {
   similarity: number;
 }
 
+/** Valoración de una respuesta del asistente: 1 = útil, -1 = poco útil. */
+export type Feedback = 1 | -1 | null;
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
   /** true si el stream se cortó antes de completarse. */
   incomplete?: boolean;
+  /** id del mensaje ya guardado (para poder valorarlo). */
+  id?: string;
+  /** valoración del usuario, si la hay. */
+  feedback?: Feedback;
 }
 
 export interface UploadDocumentPayload {
@@ -118,6 +125,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  feedback?: Feedback;
   created_at: string;
 }
 
