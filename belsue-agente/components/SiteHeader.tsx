@@ -36,6 +36,12 @@ export default function SiteHeader() {
 
         {user ? (
           <div className="flex items-center gap-3">
+            <Link
+              href="/conocimiento"
+              className="hidden text-sm text-white/90 hover:text-white sm:inline"
+            >
+              Conocimiento
+            </Link>
             {user.role === "admin" && (
               <Link
                 href="/admin"

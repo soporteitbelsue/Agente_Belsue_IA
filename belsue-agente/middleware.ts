@@ -32,8 +32,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // --- /chat: requiere sesión ---
-  if (pathname.startsWith("/chat")) {
+  // --- /chat y /conocimiento: requieren sesión (cualquier rol) ---
+  if (pathname.startsWith("/chat") || pathname.startsWith("/conocimiento")) {
     if (!token) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
@@ -46,5 +46,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/chat/:path*", "/admin/:path*"],
+  matcher: ["/", "/chat/:path*", "/admin/:path*", "/conocimiento/:path*"],
 };

@@ -77,19 +77,17 @@ interface ChunkRecord {
 }
 
 /**
- * Procesa un documento ya registrado: extrae texto, lo trocea, genera los
- * embeddings y los guarda en `document_chunks` en lotes de 20.
+ * Trocea un texto ya extraído, genera los embeddings y los guarda en
+ * `document_chunks` en lotes de 20. Reemplaza los chunks previos del
+ * documento (idempotente).
  */
-export async function processAndStoreDocument(
+async function storeTextAsChunks(
   documentId: string,
-  filePath: string,
-  fileType: string,
+  text: string,
 ): Promise<void> {
   const supabase = supabaseServer();
 
-  const text = await extractTextFromFile(filePath, fileType);
   const chunks = chunkText(text);
-
   if (chunks.length === 0) {
     throw new Error("No se pudo extraer texto del documento.");
   }
@@ -119,4 +117,28 @@ export async function processAndStoreDocument(
       throw new Error(`Error al guardar chunks: ${error.message}`);
     }
   }
+}
+
+/**
+ * Procesa un documento ya registrado: extrae texto del archivo, lo trocea,
+ * genera los embeddings y los guarda en `document_chunks`.
+ */
+export async function processAndStoreDocument(
+  documentId: string,
+  filePath: string,
+  fileType: string,
+): Promise<void> {
+  const text = await extractTextFromFile(filePath, fileType);
+  await storeTextAsChunks(documentId, text);
+}
+
+/**
+ * Indexa una nota de conocimiento: texto introducido a mano (sin archivo).
+ * Trocea, genera embeddings y los guarda en `document_chunks`.
+ */
+export async function processAndStoreText(
+  documentId: string,
+  text: string,
+): Promise<void> {
+  await storeTextAsChunks(documentId, text);
 }

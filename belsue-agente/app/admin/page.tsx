@@ -1,5 +1,6 @@
 import Link from "next/link";
 import UploadForm from "@/components/admin/UploadForm";
+import NoteForm from "@/components/admin/NoteForm";
 import DocumentList from "@/components/admin/DocumentList";
 
 export default function AdminPage() {
@@ -16,8 +17,8 @@ export default function AdminPage() {
           Administración de documentos
         </h1>
         <p className="text-sm text-gray-500">
-          Sube pólizas y documentación. Se indexarán automáticamente para el
-          agente.
+          Sube pólizas y documentación, o añade notas de conocimiento. Todo se
+          indexa automáticamente para el agente.
         </p>
       </div>
 
@@ -27,6 +28,12 @@ export default function AdminPage() {
           Documentos
         </span>
         <Link
+          href="/admin/usuarios"
+          className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
+        >
+          Usuarios
+        </Link>
+        <Link
           href="/admin/metrics"
           className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
         >
@@ -35,6 +42,7 @@ export default function AdminPage() {
       </div>
 
       <UploadForm />
+      <NoteForm />
       <DocumentList />
     </div>
   );

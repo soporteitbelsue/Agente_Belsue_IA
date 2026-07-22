@@ -1,6 +1,6 @@
 import type { DefaultSession } from "next-auth";
 
-export type FileType = "pdf" | "docx" | "txt";
+export type FileType = "pdf" | "docx" | "txt" | "nota";
 
 export type UserRole = "asesor" | "admin";
 
@@ -56,11 +56,14 @@ export interface Document {
   id: string;
   name: string;
   description: string | null;
-  file_path: string;
+  /** null en las notas de conocimiento (no tienen archivo físico). */
+  file_path: string | null;
   file_type: FileType;
   file_size: number;
   category: string | null;
   company: string | null;
+  /** Texto original de la nota; null en documentos con archivo. */
+  content: string | null;
   created_at: string;
   updated_at: string;
 }

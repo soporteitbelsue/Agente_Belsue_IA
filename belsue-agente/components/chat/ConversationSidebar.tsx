@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { formatDistanceToNow, isToday, isThisWeek, isThisMonth } from "date-fns";
 import { es } from "date-fns/locale";
+import ContributeKnowledge from "@/components/chat/ContributeKnowledge";
 import type { Conversation } from "@/types";
 
 type ConvItem = Pick<
@@ -87,7 +89,7 @@ export default function ConversationSidebar({
 
   return (
     <div className="flex h-full flex-col bg-[var(--color-background-secondary)]">
-      <div className="p-3">
+      <div className="space-y-2 p-3">
         <button
           onClick={() => goTo(null)}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-belsue px-3 py-2 text-sm font-medium text-white transition hover:bg-belsue-700"
@@ -97,6 +99,14 @@ export default function ConversationSidebar({
           </svg>
           Nueva conversación
         </button>
+        <ContributeKnowledge />
+        <Link
+          href="/conocimiento"
+          onClick={() => onNavigate?.()}
+          className="block px-1 text-center text-xs font-medium text-gray-500 hover:text-belsue"
+        >
+          Ver conocimiento del equipo →
+        </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-3">

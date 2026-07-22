@@ -120,6 +120,12 @@ export default function MetricsPage() {
         >
           Documentos
         </Link>
+        <Link
+          href="/admin/usuarios"
+          className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
+        >
+          Usuarios
+        </Link>
         <span className="border-b-2 border-belsue px-4 py-2 text-sm font-semibold text-belsue">
           Métricas
         </span>

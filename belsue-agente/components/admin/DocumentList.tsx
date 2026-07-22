@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import NoteForm, { type EditableNote } from "@/components/admin/NoteForm";
 import type { Document } from "@/types";
 
 type DocumentListItem = Pick<
@@ -63,6 +64,17 @@ function CategoryBadge({ category }: { category: string | null }) {
   );
 }
 
+function TypeBadge({ type }: { type: string }) {
+  if (type === "nota") {
+    return (
+      <span className="rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+        Nota
+      </span>
+    );
+  }
+  return <span className="uppercase text-gray-500">{type}</span>;
+}
+
 function ChunkBadge({ count }: { count: number }) {
   if (count > 0) return <span className="text-gray-600">{count}</span>;
   return (
@@ -85,6 +97,24 @@ export default function DocumentList() {
     null,
   );
   const [deleting, setDeleting] = useState(false);
+
+  const [editTarget, setEditTarget] = useState<EditableNote | null>(null);
+  const [editLoading, setEditLoading] = useState<string | null>(null);
+
+  async function openEdit(id: string) {
+    setEditLoading(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/documents/note/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error al cargar la nota.");
+      setEditTarget(data.note as EditableNote);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar la nota.");
+    } finally {
+      setEditLoading(null);
+    }
+  }
 
   // Debounce de 300ms para el filtro de compañía.
   useEffect(() => {
@@ -233,8 +263,8 @@ export default function DocumentList() {
                   <td className="py-2 pr-4">
                     <CategoryBadge category={doc.category} />
                   </td>
-                  <td className="py-2 pr-4 uppercase text-gray-500">
-                    {doc.file_type}
+                  <td className="py-2 pr-4">
+                    <TypeBadge type={doc.file_type} />
                   </td>
                   <td className="py-2 pr-4 text-gray-500">
                     {formatBytes(doc.file_size)}
@@ -246,12 +276,23 @@ export default function DocumentList() {
                     {new Date(doc.created_at).toLocaleDateString("es-ES")}
                   </td>
                   <td className="py-2">
-                    <button
-                      onClick={() => setDeleteTarget(doc)}
-                      className="text-sm font-medium text-red-600 hover:underline"
-                    >
-                      Eliminar
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {doc.file_type === "nota" && (
+                        <button
+                          onClick={() => openEdit(doc.id)}
+                          disabled={editLoading === doc.id}
+                          className="text-sm font-medium text-belsue hover:underline disabled:opacity-50"
+                        >
+                          {editLoading === doc.id ? "Abriendo…" : "Editar"}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setDeleteTarget(doc)}
+                        className="text-sm font-medium text-red-600 hover:underline"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -279,7 +320,9 @@ export default function DocumentList() {
                 </div>
                 <div className="flex justify-between">
                   <dt>Tipo</dt>
-                  <dd className="uppercase">{doc.file_type}</dd>
+                  <dd>
+                    <TypeBadge type={doc.file_type} />
+                  </dd>
                 </div>
                 <div className="flex justify-between">
                   <dt>Tamaño</dt>
@@ -298,14 +341,52 @@ export default function DocumentList() {
                   </dd>
                 </div>
               </dl>
-              <button
-                onClick={() => setDeleteTarget(doc)}
-                className="mt-3 w-full rounded-md border border-red-200 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-              >
-                Eliminar
-              </button>
+              <div className="mt-3 flex gap-2">
+                {doc.file_type === "nota" && (
+                  <button
+                    onClick={() => openEdit(doc.id)}
+                    disabled={editLoading === doc.id}
+                    className="flex-1 rounded-md border border-belsue/40 py-1.5 text-sm font-medium text-belsue hover:bg-belsue/5 disabled:opacity-50"
+                  >
+                    {editLoading === doc.id ? "Abriendo…" : "Editar"}
+                  </button>
+                )}
+                <button
+                  onClick={() => setDeleteTarget(doc)}
+                  className="flex-1 rounded-md border border-red-200 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal de edición de nota */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+          <div className="my-8 w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+            <div className="mb-4 flex justify-end">
+              <button
+                onClick={() => setEditTarget(null)}
+                aria-label="Cerrar"
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <NoteForm
+              embedded
+              note={editTarget}
+              onSaved={() => {
+                load(false);
+                setTimeout(() => setEditTarget(null), 1200);
+              }}
+            />
+          </div>
         </div>
       )}
 
