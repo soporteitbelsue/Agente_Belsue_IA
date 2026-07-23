@@ -81,28 +81,72 @@ interface ChunkRecord {
  * `document_chunks` en lotes de 20. Reemplaza los chunks previos del
  * documento (idempotente).
  */
+interface DocMeta {
+  name?: string | null;
+  description?: string | null;
+  company?: string | null;
+  category?: string | null;
+}
+
+/**
+ * Construye el texto de la cabecera de metadatos que se indexa como primer
+ * fragmento (título, compañía, categoría y DESCRIPCIÓN). Permite localizar el
+ * documento por lo que el usuario escribe al subirlo, no solo por el texto
+ * extraído del archivo (que en formularios es muy pobre).
+ */
+function buildMetadataHeader(doc: DocMeta | null): string {
+  if (!doc) return "";
+  const parts: string[] = [];
+  if (doc.name) parts.push(`Título: ${doc.name}`);
+  if (doc.company) parts.push(`Compañía: ${doc.company}`);
+  if (doc.category) parts.push(`Categoría: ${doc.category}`);
+  if (doc.description) parts.push(`Descripción: ${doc.description}`);
+  return parts.join(". ");
+}
+
+async function fetchDocMeta(documentId: string): Promise<DocMeta | null> {
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("documents")
+    .select("name, description, company, category")
+    .eq("id", documentId)
+    .maybeSingle();
+  return data as DocMeta | null;
+}
+
+/**
+ * Regenera solo el fragmento de cabecera (metadatos) de un documento, sin
+ * reprocesar el archivo. Útil al editar la descripción u otros metadatos.
+ */
+export async function refreshDocumentHeader(documentId: string): Promise<void> {
+  const supabase = supabaseServer();
+  const header = buildMetadataHeader(await fetchDocMeta(documentId));
+
+  // Borra la cabecera anterior (fragmentos que empiezan por "Título:").
+  await supabase
+    .from("document_chunks")
+    .delete()
+    .eq("document_id", documentId)
+    .like("content", "Título:%");
+
+  if (!header) return;
+
+  const embedding = await generateEmbedding(header);
+  await supabase.from("document_chunks").insert({
+    document_id: documentId,
+    content: header,
+    embedding,
+    chunk_index: 0,
+  });
+}
+
 async function storeTextAsChunks(
   documentId: string,
   text: string,
 ): Promise<void> {
   const supabase = supabaseServer();
 
-  // Cabecera con los metadatos (título, compañía, categoría y DESCRIPCIÓN).
-  // Se indexa como primer fragmento para que el documento sea localizable por
-  // lo que el usuario escribe al subirlo (p. ej. "solicitud de baja"), no solo
-  // por el texto extraído del archivo (que en formularios es muy pobre).
-  const { data: doc } = await supabase
-    .from("documents")
-    .select("name, description, company, category")
-    .eq("id", documentId)
-    .maybeSingle();
-
-  const headerParts: string[] = [];
-  if (doc?.name) headerParts.push(`Título: ${doc.name}`);
-  if (doc?.company) headerParts.push(`Compañía: ${doc.company}`);
-  if (doc?.category) headerParts.push(`Categoría: ${doc.category}`);
-  if (doc?.description) headerParts.push(`Descripción: ${doc.description}`);
-  const header = headerParts.join(". ");
+  const header = buildMetadataHeader(await fetchDocMeta(documentId));
 
   const bodyChunks = chunkText(text);
   const chunks = header ? [header, ...bodyChunks] : bodyChunks;

@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import NoteForm, { type EditableNote } from "@/components/admin/NoteForm";
+import DocumentMetaForm, {
+  type EditableDocument,
+} from "@/components/admin/DocumentMetaForm";
 import type { Document } from "@/types";
 
 type DocumentListItem = Pick<
@@ -100,6 +103,9 @@ export default function DocumentList() {
 
   const [editTarget, setEditTarget] = useState<EditableNote | null>(null);
   const [editLoading, setEditLoading] = useState<string | null>(null);
+  const [editDocTarget, setEditDocTarget] = useState<EditableDocument | null>(
+    null,
+  );
   const [reindexingId, setReindexingId] = useState<string | null>(null);
   const [reindexedId, setReindexedId] = useState<string | null>(null);
 
@@ -301,13 +307,28 @@ export default function DocumentList() {
                   </td>
                   <td className="py-2">
                     <div className="flex items-center gap-3">
-                      {doc.file_type === "nota" && (
+                      {doc.file_type === "nota" ? (
                         <button
                           onClick={() => openEdit(doc.id)}
                           disabled={editLoading === doc.id}
                           className="text-sm font-medium text-belsue hover:underline disabled:opacity-50"
                         >
                           {editLoading === doc.id ? "Abriendo…" : "Editar"}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            setEditDocTarget({
+                              id: doc.id,
+                              name: doc.name,
+                              description: doc.description,
+                              company: doc.company,
+                              category: doc.category,
+                            })
+                          }
+                          className="text-sm font-medium text-belsue hover:underline"
+                        >
+                          Editar
                         </button>
                       )}
                       {doc.reindexable &&
@@ -381,13 +402,28 @@ export default function DocumentList() {
                 </div>
               </dl>
               <div className="mt-3 flex gap-2">
-                {doc.file_type === "nota" && (
+                {doc.file_type === "nota" ? (
                   <button
                     onClick={() => openEdit(doc.id)}
                     disabled={editLoading === doc.id}
                     className="flex-1 rounded-md border border-belsue/40 py-1.5 text-sm font-medium text-belsue hover:bg-belsue/5 disabled:opacity-50"
                   >
                     {editLoading === doc.id ? "Abriendo…" : "Editar"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() =>
+                      setEditDocTarget({
+                        id: doc.id,
+                        name: doc.name,
+                        description: doc.description,
+                        company: doc.company,
+                        category: doc.category,
+                      })
+                    }
+                    className="flex-1 rounded-md border border-belsue/40 py-1.5 text-sm font-medium text-belsue hover:bg-belsue/5"
+                  >
+                    Editar
                   </button>
                 )}
                 {doc.reindexable &&
@@ -437,6 +473,32 @@ export default function DocumentList() {
               onSaved={() => {
                 load(false);
                 setTimeout(() => setEditTarget(null), 1200);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de edición de metadatos de documento */}
+      {editDocTarget && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+          <div className="my-8 w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+            <div className="mb-4 flex justify-end">
+              <button
+                onClick={() => setEditDocTarget(null)}
+                aria-label="Cerrar"
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <DocumentMetaForm
+              doc={editDocTarget}
+              onSaved={() => {
+                load(false);
+                setTimeout(() => setEditDocTarget(null), 1000);
               }}
             />
           </div>
