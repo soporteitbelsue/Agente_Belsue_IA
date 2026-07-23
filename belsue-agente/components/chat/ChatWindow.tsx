@@ -47,6 +47,9 @@ export default function ChatWindow({
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
   // Id de la conversación activa en este panel (puede crearse al enviar).
   const currentIdRef = useRef<string | null>(conversationId ?? null);
+  // Espejo siempre actualizado de los mensajes: permite leer el historial de
+  // forma síncrona al enviar (el updater de setState no corre de inmediato).
+  const messagesRef = useRef<ChatMessage[]>(messages);
 
   // Cargar la conversación cuando cambia el id de la URL.
   useEffect(() => {
@@ -87,6 +90,11 @@ export default function ChatWindow({
     };
   }, [conversationId]);
 
+  // Mantener el espejo del historial sincronizado con el estado.
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
@@ -111,14 +119,15 @@ export default function ChatWindow({
       setPinnedIndex(null); // el panel vuelve a seguir la última respuesta
       lastQueryRef.current = text;
 
-      let assistantIndex = -1;
-      let history: { role: "user" | "assistant"; content: string }[] = [];
+      // El historial (memoria de la conversación) se lee del ref de forma
+      // síncrona, ANTES del setState, para no enviarlo vacío. Excluye el
+      // mensaje de bienvenida sintético.
+      const history = messagesRef.current
+        .filter((m) => m !== WELCOME_MESSAGE)
+        .map((m) => ({ role: m.role, content: m.content }));
 
+      let assistantIndex = -1;
       setMessages((prev) => {
-        // El historial excluye el mensaje de bienvenida sintético.
-        history = prev
-          .filter((m) => m !== WELCOME_MESSAGE)
-          .map((m) => ({ role: m.role, content: m.content }));
         const next: ChatMessage[] = [
           ...prev.filter((m) => m !== WELCOME_MESSAGE),
           { role: "user", content: text },
