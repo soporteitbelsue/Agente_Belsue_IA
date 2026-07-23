@@ -80,6 +80,7 @@ export interface DocumentChunk {
 
 /** Fuente citada que se devuelve junto a una respuesta del agente. */
 export interface Source {
+  documentId?: string;
   documentName: string;
   company?: string;
   category?: string;

@@ -31,6 +31,7 @@ export async function retrieveRelevantChunks(
   const rows = (data ?? []) as MatchChunkRow[];
 
   return rows.map((row) => ({
+    documentId: row.document_id,
     documentName: row.document_name,
     company: row.document_company ?? undefined,
     category: row.document_category ?? undefined,

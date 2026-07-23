@@ -22,6 +22,26 @@ export async function createSignedUpload(path: string): Promise<{
   return { path: data.path, token: data.token };
 }
 
+/**
+ * Crea una URL firmada temporal para DESCARGAR un archivo de Storage.
+ * `filename` fija el nombre con el que se guarda (Content-Disposition).
+ */
+export async function createSignedDownload(
+  path: string,
+  filename: string,
+  expiresInSeconds = 120,
+): Promise<string> {
+  const supabase = supabaseServer();
+  const { data, error } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .createSignedUrl(path, expiresInSeconds, { download: filename });
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "No se pudo generar el enlace de descarga.");
+  }
+  return data.signedUrl;
+}
+
 /** Descarga un archivo de Storage como Buffer (para indexarlo en el servidor). */
 export async function downloadFile(path: string): Promise<Buffer> {
   const supabase = supabaseServer();

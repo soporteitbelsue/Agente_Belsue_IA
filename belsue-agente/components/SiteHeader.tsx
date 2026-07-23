@@ -37,6 +37,12 @@ export default function SiteHeader() {
         {user ? (
           <div className="flex items-center gap-3">
             <Link
+              href="/documentos"
+              className="hidden text-sm text-white/90 hover:text-white sm:inline"
+            >
+              Documentos
+            </Link>
+            <Link
               href="/conocimiento"
               className="hidden text-sm text-white/90 hover:text-white sm:inline"
             >
