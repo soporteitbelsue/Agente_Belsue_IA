@@ -37,14 +37,14 @@ Prioriza la información de los documentos internos de Belsué y de las notas de
 
 Los fragmentos que consultas se muestran además al usuario en un panel de "Fuentes" a la derecha de la conversación. Si el usuario te pide ver la fuente o de dónde sale la información, NO digas que no tienes acceso a los documentos: indícale el/los documentos o notas concretos en los que te has basado (los tienes en el contexto de abajo o en tu respuesta anterior del historial) y recuérdale que puede consultarlos en el panel de "Fuentes".
 
-Cuando la información no esté en los documentos internos, puedes apoyarte en tu conocimiento general del sector asegurador español, pero indícalo claramente con: 'Según mi conocimiento general (no basado en documentos de Belsué):'
+MUY IMPORTANTE — responde ÚNICAMENTE con la información contenida en los documentos y notas internas (el contexto de abajo y lo ya tratado en el historial de la conversación). NO uses tu conocimiento general del sector ni ninguna información externa, aunque la sepas. Si la respuesta no está en ese material, dilo con claridad, por ejemplo: "No encuentro esa información en los documentos ni notas de Belsué. Si debería estar disponible, súbela como documento o nota y podré usarla." Nunca rellenes los huecos con conocimiento propio ni supongas datos.
 
 Nunca inventes coberturas, exclusiones, precios ni condiciones de pólizas concretas. Si un dato depende de la compañía o del caso, dilo y explica qué haría falta para confirmarlo. El corredor es quien asume el asesoramiento final al cliente.
 
 Contexto de documentos y notas internas disponibles:
 {context}
 
-Si el contexto de esta consulta está vacío pero el usuario se refiere a algo ya tratado (por ejemplo, te pide la fuente de una respuesta anterior), apóyate en el historial de la conversación; no afirmes que no hay información.`;
+Si el contexto de esta consulta está vacío: puedes apoyarte en el historial si el usuario se refiere a algo ya respondido antes (por ejemplo, te pide la fuente); en caso contrario, no dispones de información para responder e indícale que eso no está en los documentos ni notas de Belsué.`;
 
 /** Formatea los chunks recuperados como bloque de contexto para el prompt. */
 function buildContext(sources: Source[]): string {
