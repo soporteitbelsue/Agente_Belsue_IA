@@ -101,15 +101,23 @@ export default function DocumentList() {
   const [editTarget, setEditTarget] = useState<EditableNote | null>(null);
   const [editLoading, setEditLoading] = useState<string | null>(null);
   const [reindexingId, setReindexingId] = useState<string | null>(null);
+  const [reindexedId, setReindexedId] = useState<string | null>(null);
 
   async function reindex(id: string) {
     setReindexingId(id);
+    setReindexedId(null);
     setError(null);
     try {
       const res = await fetch(`/api/documents/${id}/process`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Error al reindexar.");
       await load(false);
+      // Confirmación visual temporal.
+      setReindexedId(id);
+      setTimeout(
+        () => setReindexedId((cur) => (cur === id ? null : cur)),
+        3000,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al reindexar.");
     } finally {
@@ -302,16 +310,21 @@ export default function DocumentList() {
                           {editLoading === doc.id ? "Abriendo…" : "Editar"}
                         </button>
                       )}
-                      {doc.reindexable && (
-                        <button
-                          onClick={() => reindex(doc.id)}
-                          disabled={reindexingId === doc.id}
-                          title="Volver a indexar (incluye la descripción)"
-                          className="text-sm font-medium text-gray-500 hover:text-belsue hover:underline disabled:opacity-50"
-                        >
-                          {reindexingId === doc.id ? "Reindexando…" : "Reindexar"}
-                        </button>
-                      )}
+                      {doc.reindexable &&
+                        (reindexedId === doc.id ? (
+                          <span className="text-sm font-medium text-green-600">
+                            Reindexado ✓
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => reindex(doc.id)}
+                            disabled={reindexingId === doc.id}
+                            title="Volver a indexar (incluye la descripción)"
+                            className="text-sm font-medium text-gray-500 hover:text-belsue hover:underline disabled:opacity-50"
+                          >
+                            {reindexingId === doc.id ? "Reindexando…" : "Reindexar"}
+                          </button>
+                        ))}
                       <button
                         onClick={() => setDeleteTarget(doc)}
                         className="text-sm font-medium text-red-600 hover:underline"
@@ -377,15 +390,20 @@ export default function DocumentList() {
                     {editLoading === doc.id ? "Abriendo…" : "Editar"}
                   </button>
                 )}
-                {doc.reindexable && (
-                  <button
-                    onClick={() => reindex(doc.id)}
-                    disabled={reindexingId === doc.id}
-                    className="flex-1 rounded-md border border-gray-300 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {reindexingId === doc.id ? "Reindexando…" : "Reindexar"}
-                  </button>
-                )}
+                {doc.reindexable &&
+                  (reindexedId === doc.id ? (
+                    <span className="flex-1 rounded-md border border-green-200 bg-green-50 py-1.5 text-center text-sm font-medium text-green-600">
+                      Reindexado ✓
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => reindex(doc.id)}
+                      disabled={reindexingId === doc.id}
+                      className="flex-1 rounded-md border border-gray-300 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {reindexingId === doc.id ? "Reindexando…" : "Reindexar"}
+                    </button>
+                  ))}
                 <button
                   onClick={() => setDeleteTarget(doc)}
                   className="flex-1 rounded-md border border-red-200 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
