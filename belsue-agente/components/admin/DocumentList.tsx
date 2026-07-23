@@ -14,7 +14,7 @@ type DocumentListItem = Pick<
   | "file_type"
   | "file_size"
   | "created_at"
-> & { chunk_count: number };
+> & { chunk_count: number; reindexable: boolean };
 
 const CATEGORY_OPTIONS = [
   { value: "", label: "Todas las categorías" },
@@ -100,6 +100,22 @@ export default function DocumentList() {
 
   const [editTarget, setEditTarget] = useState<EditableNote | null>(null);
   const [editLoading, setEditLoading] = useState<string | null>(null);
+  const [reindexingId, setReindexingId] = useState<string | null>(null);
+
+  async function reindex(id: string) {
+    setReindexingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/documents/${id}/process`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Error al reindexar.");
+      await load(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al reindexar.");
+    } finally {
+      setReindexingId(null);
+    }
+  }
 
   async function openEdit(id: string) {
     setEditLoading(id);
@@ -286,6 +302,16 @@ export default function DocumentList() {
                           {editLoading === doc.id ? "Abriendo…" : "Editar"}
                         </button>
                       )}
+                      {doc.reindexable && (
+                        <button
+                          onClick={() => reindex(doc.id)}
+                          disabled={reindexingId === doc.id}
+                          title="Volver a indexar (incluye la descripción)"
+                          className="text-sm font-medium text-gray-500 hover:text-belsue hover:underline disabled:opacity-50"
+                        >
+                          {reindexingId === doc.id ? "Reindexando…" : "Reindexar"}
+                        </button>
+                      )}
                       <button
                         onClick={() => setDeleteTarget(doc)}
                         className="text-sm font-medium text-red-600 hover:underline"
@@ -349,6 +375,15 @@ export default function DocumentList() {
                     className="flex-1 rounded-md border border-belsue/40 py-1.5 text-sm font-medium text-belsue hover:bg-belsue/5 disabled:opacity-50"
                   >
                     {editLoading === doc.id ? "Abriendo…" : "Editar"}
+                  </button>
+                )}
+                {doc.reindexable && (
+                  <button
+                    onClick={() => reindex(doc.id)}
+                    disabled={reindexingId === doc.id}
+                    className="flex-1 rounded-md border border-gray-300 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {reindexingId === doc.id ? "Reindexando…" : "Reindexar"}
                   </button>
                 )}
                 <button

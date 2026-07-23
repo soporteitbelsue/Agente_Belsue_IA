@@ -12,8 +12,14 @@ interface DocumentRow {
   company: string | null;
   file_type: string;
   file_size: number;
+  file_path: string | null;
   created_at: string;
   document_chunks: { count: number }[] | null;
+}
+
+/** true si el archivo está en Storage (ruta sin barras), reindexable. */
+function isStoragePath(p: string | null): boolean {
+  return !!p && !p.includes("/") && !p.includes("\\");
 }
 
 /**
@@ -35,7 +41,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from("documents")
       .select(
-        "id, name, description, category, company, file_type, file_size, created_at, document_chunks(count)",
+        "id, name, description, category, company, file_type, file_size, file_path, created_at, document_chunks(count)",
       )
       .order("created_at", { ascending: false });
 
@@ -63,6 +69,7 @@ export async function GET(req: NextRequest) {
       file_size: doc.file_size,
       created_at: doc.created_at,
       chunk_count: doc.document_chunks?.[0]?.count ?? 0,
+      reindexable: isStoragePath(doc.file_path),
     }));
 
     return NextResponse.json({ documents });

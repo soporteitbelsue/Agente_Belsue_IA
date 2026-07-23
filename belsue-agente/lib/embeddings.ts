@@ -87,7 +87,25 @@ async function storeTextAsChunks(
 ): Promise<void> {
   const supabase = supabaseServer();
 
-  const chunks = chunkText(text);
+  // Cabecera con los metadatos (título, compañía, categoría y DESCRIPCIÓN).
+  // Se indexa como primer fragmento para que el documento sea localizable por
+  // lo que el usuario escribe al subirlo (p. ej. "solicitud de baja"), no solo
+  // por el texto extraído del archivo (que en formularios es muy pobre).
+  const { data: doc } = await supabase
+    .from("documents")
+    .select("name, description, company, category")
+    .eq("id", documentId)
+    .maybeSingle();
+
+  const headerParts: string[] = [];
+  if (doc?.name) headerParts.push(`Título: ${doc.name}`);
+  if (doc?.company) headerParts.push(`Compañía: ${doc.company}`);
+  if (doc?.category) headerParts.push(`Categoría: ${doc.category}`);
+  if (doc?.description) headerParts.push(`Descripción: ${doc.description}`);
+  const header = headerParts.join(". ");
+
+  const bodyChunks = chunkText(text);
+  const chunks = header ? [header, ...bodyChunks] : bodyChunks;
   if (chunks.length === 0) {
     throw new Error("No se pudo extraer texto del documento.");
   }
