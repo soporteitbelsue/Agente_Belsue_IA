@@ -3,9 +3,10 @@ import { generateEmbedding } from "@/lib/embeddings";
 import type { MatchChunkRow, Source } from "@/types";
 
 // Umbral de similitud coseno. Con text-embedding-3-small el contenido
-// realmente relevante suele puntuar en torno a 0.4-0.7, por lo que un
-// umbral de 0.7 descartaba casi todo. 0.4 da buen recall sin traer ruido.
-const MATCH_THRESHOLD = 0.4;
+// relevante puntúa ~0.3-0.7. Con 0.4 se quedaban fuera fragmentos útiles
+// (p. ej. pasos de procedimientos en notas cortas, que rondan 0.35-0.4).
+// 0.3 da mejor recall; el modo estricto del prompt ignora lo irrelevante.
+const MATCH_THRESHOLD = 0.3;
 
 /**
  * Recupera los fragmentos más relevantes para una consulta (RAG).
