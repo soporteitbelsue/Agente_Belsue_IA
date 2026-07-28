@@ -65,11 +65,15 @@ LANGUAGE sql STABLE AS $$
   LIMIT match_count;
 $$;
 
--- 5. Índice para búsqueda eficiente (cosine)
-CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx
-  ON document_chunks
-  USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 100);
+-- 5. Búsqueda por similitud
+-- NO usamos índice ivfflat: con pocas miles de filas, un ivfflat mal
+-- dimensionado (lists altas, probes=1) tiene MALA recall y oculta resultados
+-- (solo compara con ~1% de los vectores). A esta escala, la búsqueda EXACTA
+-- (sin índice, seq scan) es rápida y tiene recall 100%.
+-- Si algún día se superan ~cientos de miles de fragmentos y la latencia sube,
+-- crear un índice HNSW (mejor recall que ivfflat):
+--   CREATE INDEX document_chunks_embedding_idx
+--     ON document_chunks USING hnsw (embedding vector_cosine_ops);
 
 -- Índice auxiliar para joins por documento
 CREATE INDEX IF NOT EXISTS document_chunks_document_id_idx
