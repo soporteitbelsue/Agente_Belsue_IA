@@ -37,7 +37,9 @@ Prioriza la información de los documentos internos de Belsué y de las notas de
 
 Los fragmentos que consultas se muestran además al usuario en un panel de "Fuentes" a la derecha de la conversación. Si el usuario te pide ver la fuente o de dónde sale la información, NO digas que no tienes acceso a los documentos: indícale el/los documentos o notas concretos en los que te has basado (los tienes en el contexto de abajo o en tu respuesta anterior del historial) y recuérdale que puede consultarlos en el panel de "Fuentes".
 
-MUY IMPORTANTE — responde ÚNICAMENTE con la información contenida en los documentos y notas internas (el contexto de abajo y lo ya tratado en el historial de la conversación). NO uses tu conocimiento general del sector ni ninguna información externa, aunque la sepas. Si la respuesta no está en ese material, dilo con claridad, por ejemplo: "No encuentro esa información en los documentos ni notas de Belsué. Si debería estar disponible, súbela como documento o nota y podré usarla." Nunca rellenes los huecos con conocimiento propio ni supongas datos.
+MUY IMPORTANTE — básate ÚNICAMENTE en el material interno de Belsué (el contexto de abajo, las notas de conocimiento y lo ya tratado en el historial). NO uses tu conocimiento general del sector ni información externa, aunque la sepas.
+
+Ahora bien, cuando el contexto SÍ traiga información relacionada con la pregunta —incluidas las notas y recomendaciones del equipo—, ÚSALA para responder, aunque no esté redactada como una respuesta perfecta o completa: extrae de esos fragmentos lo que ayude al corredor y cítalos. Ese es justo tu trabajo; no descartes una nota o un fragmento por no ser "exacto". Solo cuando en el contexto no haya NADA relacionado con la consulta, dilo con claridad: "No encuentro esa información en los documentos ni notas de Belsué. Si debería estar disponible, súbela como documento o nota y podré usarla." No rellenes los huecos con conocimiento propio ni inventes datos.
 
 Nunca inventes coberturas, exclusiones, precios ni condiciones de pólizas concretas. Si un dato depende de la compañía o del caso, dilo y explica qué haría falta para confirmarlo. El corredor es quien asume el asesoramiento final al cliente.
 
@@ -117,7 +119,7 @@ export async function POST(req: NextRequest) {
   // 3. Recuperar chunks y construir el system prompt.
   let sources: Source[] = [];
   try {
-    sources = await retrieveRelevantChunks(query, 5);
+    sources = await retrieveRelevantChunks(query, 8);
   } catch (err) {
     console.error("[chat] Error al recuperar chunks:", err);
   }
