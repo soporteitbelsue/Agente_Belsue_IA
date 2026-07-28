@@ -149,7 +149,9 @@ export async function POST(req: NextRequest) {
         const completion = await openai.chat.completions.create({
           model: CHAT_MODEL,
           messages: chatMessages,
-          temperature: 0.2,
+          // Sin temperature fija: los modelos nuevos de OpenAI solo admiten el
+          // valor por defecto. Omitirla mantiene la compatibilidad con
+          // cualquier modelo (gpt-4o y posteriores).
           stream: true,
         });
 

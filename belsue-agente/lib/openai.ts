@@ -11,4 +11,4 @@ if (!apiKey) {
 export const openai = new OpenAI({ apiKey: apiKey ?? "" });
 
 export const EMBEDDING_MODEL = "text-embedding-3-small";
-export const CHAT_MODEL = "gpt-4o";
+export const CHAT_MODEL = "gpt-5.6-terra";
