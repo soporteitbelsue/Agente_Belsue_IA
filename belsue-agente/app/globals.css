@@ -19,6 +19,32 @@ body {
 body {
   color: var(--foreground);
   background: var(--background);
+  /* Cursor de flecha por defecto: evita que aparezca la "rayita de escribir"
+     (I-beam) sobre textos que no son editables. */
+  cursor: default;
+}
+
+/* Elementos interactivos: manita. */
+a,
+button,
+[role="button"],
+label,
+select,
+summary {
+  cursor: pointer;
+}
+
+/* Solo los campos de escritura muestran el cursor de texto. */
+input,
+textarea,
+[contenteditable="true"] {
+  cursor: text;
+}
+
+/* Botones deshabilitados: sin manita. */
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 /* Cursor parpadeante para el streaming del asistente */
