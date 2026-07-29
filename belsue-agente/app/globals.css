@@ -24,7 +24,8 @@ body {
   cursor: default;
 }
 
-/* Elementos interactivos: manita. */
+/* Elementos interactivos: manita y sin selección de texto (no son para
+   escribir, así no aparece cursor de texto ni se seleccionan al hacer clic). */
 a,
 button,
 [role="button"],
@@ -32,6 +33,8 @@ label,
 select,
 summary {
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Solo los campos de escritura muestran el cursor de texto. */
