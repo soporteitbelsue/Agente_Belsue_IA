@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreBuffer } from "@/lib/embeddings";
 import { downloadFile, removeFile } from "@/lib/storage";
 
@@ -16,8 +16,10 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const unauthorized = await requireAdmin();
-  if (unauthorized) return unauthorized;
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
 
   const supabase = supabaseServer();
 

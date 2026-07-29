@@ -49,6 +49,16 @@ Contexto de documentos y notas internas disponibles:
 
 Si el contexto de esta consulta está vacío: puedes apoyarte en el historial si el usuario se refiere a algo ya respondido antes (por ejemplo, te pide la fuente); en caso contrario, no dispones de información para responder e indícale que eso no está en los documentos ni notas de Belsué.`;
 
+/**
+ * Detecta si la respuesta es un "no sé responder". El modelo no usa siempre la
+ * misma frase exacta, así que reconocemos las formas habituales: "no encuentro
+ * / no dispongo de / no tengo esa información", "no aparece/consta/figura en los
+ * documentos ni notas", etc. Se usa para avisar por correo del hueco de
+ * conocimiento.
+ */
+const NO_ANSWER_RE =
+  /no\s+(?:encuentro|dispongo\s+de|tengo|hay|consta|aparece|figura|puedo\s+(?:encontrar|ofrecer|proporcionar|dar))\b[\s\S]{0,60}?(?:informaci|dato|document|nota|belsu)/i;
+
 /** Formatea los chunks recuperados como bloque de contexto para el prompt. */
 function buildContext(sources: Source[]): string {
   if (sources.length === 0) return "";

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import UploadForm from "@/components/admin/UploadForm";
 
 interface Doc {
   id: string;
@@ -53,6 +54,7 @@ export default function DocumentosPage() {
   const [category, setCategory] = useState("");
   const [search, setSearch] = useState("");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -71,6 +73,9 @@ export default function DocumentosPage() {
 
   useEffect(() => {
     load();
+    const handler = () => load();
+    window.addEventListener("document-uploaded", handler);
+    return () => window.removeEventListener("document-uploaded", handler);
   }, [load]);
 
   async function download(doc: Doc) {
@@ -99,19 +104,48 @@ export default function DocumentosPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 overflow-y-auto px-4 py-6">
-      <div>
-        <Link
-          href="/chat"
-          className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-belsue hover:underline"
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <Link
+            href="/chat"
+            className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-belsue hover:underline"
+          >
+            ← Volver al chat
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-800">Documentos</h1>
+          <p className="text-sm text-gray-500">
+            Consulta, sube y descarga los documentos y condicionados del equipo.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowUpload(true)}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-belsue px-4 py-2 text-sm font-medium text-white transition hover:bg-belsue-700"
         >
-          ← Volver al chat
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-800">Documentos</h1>
-        <p className="text-sm text-gray-500">
-          Consulta y descarga los documentos y condicionados subidos por el
-          equipo.
-        </p>
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 7.5L12 3m0 0L7.5 7.5M12 3v13.5" />
+          </svg>
+          Subir documento
+        </button>
       </div>
+
+      {showUpload && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+          <div className="my-8 w-full max-w-lg">
+            <div className="mb-2 flex justify-end">
+              <button
+                onClick={() => setShowUpload(false)}
+                aria-label="Cerrar"
+                className="rounded-md bg-white/90 p-1 text-gray-500 shadow hover:bg-white hover:text-gray-700"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <UploadForm />
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <input

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
 import { getSessionUserId } from "@/lib/conversations";
 import { createSignedUpload } from "@/lib/storage";
 
@@ -30,9 +29,10 @@ const bodySchema = z.object({
  * Supabase Storage. Después se llama a /api/documents/{id}/process.
  */
 export async function POST(req: NextRequest) {
-  const unauthorized = await requireAdmin();
-  if (unauthorized) return unauthorized;
   const userId = await getSessionUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
 
   let body: z.infer<typeof bodySchema>;
   try {
