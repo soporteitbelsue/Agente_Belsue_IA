@@ -22,7 +22,7 @@ function cleanText(text: string): string {
  * (junto con los saltos de línea) a partir de la posición (coordenadas) de
  * cada fragmento.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line
 function itemsToText(items: any[]): string {
   let text = "";
   let lastX: number | null = null;
