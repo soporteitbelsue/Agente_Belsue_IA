@@ -114,42 +114,19 @@ async function fetchDocMeta(documentId: string): Promise<DocMeta | null> {
   return data as DocMeta | null;
 }
 
-/**
- * Regenera solo el fragmento de cabecera (metadatos) de un documento, sin
- * reprocesar el archivo. Útil al editar la descripción u otros metadatos.
- */
-export async function refreshDocumentHeader(documentId: string): Promise<void> {
-  const supabase = supabaseServer();
-  const header = buildMetadataHeader(await fetchDocMeta(documentId));
-
-  // Borra la cabecera anterior (fragmentos que empiezan por "Título:").
-  await supabase
-    .from("document_chunks")
-    .delete()
-    .eq("document_id", documentId)
-    .like("content", "Título:%");
-
-  if (!header) return;
-
-  const embedding = await generateEmbedding(header);
-  await supabase.from("document_chunks").insert({
-    document_id: documentId,
-    content: header,
-    embedding,
-    chunk_index: 0,
-  });
-}
-
 async function storeTextAsChunks(
   documentId: string,
   text: string,
 ): Promise<void> {
   const supabase = supabaseServer();
 
+  // Fusionamos la cabecera con el texto ANTES de trocear: así el primer
+  // fragmento contiene título + descripción + el inicio del contenido juntos.
+  // (Antes iban en fragmentos separados: si el título casaba con la consulta
+  // pero el contenido no, los pasos quedaban huérfanos y no se recuperaban.)
   const header = buildMetadataHeader(await fetchDocMeta(documentId));
-
-  const bodyChunks = chunkText(text);
-  const chunks = header ? [header, ...bodyChunks] : bodyChunks;
+  const fullText = header ? `${header}\n\n${text}` : text;
+  const chunks = chunkText(fullText);
   if (chunks.length === 0) {
     throw new Error("No se pudo extraer texto del documento.");
   }

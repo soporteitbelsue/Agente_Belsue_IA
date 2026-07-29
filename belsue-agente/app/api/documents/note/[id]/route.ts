@@ -95,7 +95,7 @@ export async function PATCH(
     .update(updateFields)
     .eq("id", params.id)
     .eq("file_type", "nota")
-    .select("id")
+    .select("id, content")
     .maybeSingle();
 
   if (error) {
@@ -106,16 +106,16 @@ export async function PATCH(
     return NextResponse.json({ error: "Nota no encontrada." }, { status: 404 });
   }
 
-  // Si cambió el texto, re-indexar (regenera embeddings).
-  if (body.content !== undefined) {
-    try {
-      await processAndStoreText(params.id, body.content);
-    } catch (procErr) {
-      console.error(`[note] Error al re-indexar la nota ${params.id}:`, procErr);
-      const message =
-        procErr instanceof Error ? procErr.message : "Error al re-indexar.";
-      return NextResponse.json({ error: message }, { status: 500 });
-    }
+  // Reindexar SIEMPRE: la cabecera (título/compañía/categoría/descripción) va
+  // fusionada con el contenido, así que cualquier cambio de metadatos también
+  // debe regenerar los embeddings. Las notas son cortas, es barato.
+  try {
+    await processAndStoreText(params.id, (data.content as string) ?? "");
+  } catch (procErr) {
+    console.error(`[note] Error al re-indexar la nota ${params.id}:`, procErr);
+    const message =
+      procErr instanceof Error ? procErr.message : "Error al re-indexar.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

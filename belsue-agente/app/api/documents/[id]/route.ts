@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
-import { removeFile } from "@/lib/storage";
-import { refreshDocumentHeader } from "@/lib/embeddings";
+import { removeFile, downloadFile } from "@/lib/storage";
+import { processAndStoreBuffer } from "@/lib/embeddings";
 
 export const runtime = "nodejs";
+// Editar metadatos reindexa el documento (la cabecera va fusionada con el
+// contenido); ampliamos el límite por si el archivo es grande.
+export const maxDuration = 300;
+
+/** true si el archivo está en Storage (ruta sin barras). */
+function isStoragePath(p: string | null): p is string {
+  return !!p && !p.includes("/") && !p.includes("\\");
+}
 
 const updateSchema = z
   .object({
@@ -57,7 +65,7 @@ export async function PATCH(
     .from("documents")
     .update(fields)
     .eq("id", params.id)
-    .select("id")
+    .select("id, file_path, file_type")
     .maybeSingle();
 
   if (error) {
@@ -68,13 +76,16 @@ export async function PATCH(
     return NextResponse.json({ error: "Documento no encontrado." }, { status: 404 });
   }
 
-  // Regenera la cabecera indexada (contiene la descripción) — barato, sin
-  // reprocesar el archivo entero.
-  try {
-    await refreshDocumentHeader(params.id);
-  } catch (err) {
-    console.error("[documents] Error al refrescar la cabecera:", err);
-    // El documento ya se actualizó; el fallo de reindexado no es crítico.
+  // Reindexa el documento para que la cabecera fusionada (con la nueva
+  // descripción) se refleje en la búsqueda. Best-effort: si falla, los
+  // metadatos ya se guardaron. Solo posible si el archivo está en Storage.
+  if (isStoragePath(data.file_path)) {
+    try {
+      const buffer = await downloadFile(data.file_path);
+      await processAndStoreBuffer(params.id, buffer, data.file_type);
+    } catch (err) {
+      console.error("[documents] Error al reindexar tras editar:", err);
+    }
   }
 
   return NextResponse.json({ success: true });
