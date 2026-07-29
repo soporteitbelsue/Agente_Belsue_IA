@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreBuffer } from "@/lib/embeddings";
 import { downloadFile, removeFile } from "@/lib/storage";
+import { sendNotification, escapeHtml } from "@/lib/email";
 
 export const runtime = "nodejs";
 // Indexar PDFs grandes puede tardar; ampliamos el límite (Vercel Pro).
@@ -25,7 +26,7 @@ export async function POST(
 
   const { data: doc, error } = await supabase
     .from("documents")
-    .select("id, file_path, file_type")
+    .select("id, name, file_path, file_type, company, category")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -42,6 +43,23 @@ export async function POST(
   try {
     const buffer = await downloadFile(doc.file_path);
     await processAndStoreBuffer(doc.id, buffer, doc.file_type);
+
+    // Aviso por correo de la subida (best-effort).
+    const { data: author } = await supabase
+      .from("users")
+      .select("name, email")
+      .eq("id", userId)
+      .maybeSingle();
+    await sendNotification(
+      "📄 Nuevo documento subido al Formador",
+      `<p><b>${escapeHtml(author?.name ?? "Un usuario")}</b> (${escapeHtml(
+        author?.email ?? "",
+      )}) ha subido un documento:</p>
+       <p><b>Nombre:</b> ${escapeHtml(doc.name)}${
+         doc.company ? ` · <b>Compañía:</b> ${escapeHtml(doc.company)}` : ""
+       }${doc.category ? ` · <b>Categoría:</b> ${escapeHtml(doc.category)}` : ""}</p>`,
+    );
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(`[process] Error al indexar ${params.id}:`, err);
