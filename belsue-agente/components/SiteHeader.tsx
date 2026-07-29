@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import formadorImg from "@/imagenes/formador.png";
 
 function initials(name: string): string {
   return name
@@ -25,12 +27,17 @@ export default function SiteHeader() {
   return (
     <header className="bg-belsue text-white shadow-sm">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/chat" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-sm font-bold">
-            B
+        <Link href="/chat" className="flex items-center gap-2.5">
+          <span className="block h-11 w-11 shrink-0 overflow-hidden rounded-full bg-white shadow-sm ring-2 ring-white/50">
+            <Image
+              src={formadorImg}
+              alt="El Formador"
+              className="h-full w-full scale-[1.7] object-cover object-[center_26%]"
+              priority
+            />
           </span>
           <span className="text-lg font-semibold tracking-tight">
-            Asistente Belsué
+            El Formador
           </span>
         </Link>
 
