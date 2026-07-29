@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreText } from "@/lib/embeddings";
 
 export const runtime = "nodejs";
@@ -10,14 +10,16 @@ const NOTE_FIELDS = "id, name, content, company, category, created_at, file_type
 
 /**
  * GET /api/documents/note/{id} — devuelve una nota concreta (para editarla).
- * Solo admin.
+ * Cualquier usuario autenticado (el conocimiento es colaborativo).
  */
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const unauthorized = await requireAdmin();
-  if (unauthorized) return unauthorized;
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -49,14 +51,17 @@ const updateSchema = z
 
 /**
  * PATCH /api/documents/note/{id} — actualiza una nota. Si cambia el texto,
- * se vuelve a indexar (regenera los embeddings). Solo admin.
+ * se vuelve a indexar (regenera los embeddings). Cualquier usuario autenticado
+ * puede editar (el conocimiento lo mantiene todo el equipo).
  */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const unauthorized = await requireAdmin();
-  if (unauthorized) return unauthorized;
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
 
   let body: z.infer<typeof updateSchema>;
   try {

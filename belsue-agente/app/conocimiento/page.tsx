@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import ContributeKnowledge from "@/components/chat/ContributeKnowledge";
 import NoteForm, { type EditableNote } from "@/components/admin/NoteForm";
 
@@ -48,9 +47,6 @@ export default function ConocimientoPage() {
   const [category, setCategory] = useState("");
   const [search, setSearch] = useState("");
   const [editTarget, setEditTarget] = useState<EditableNote | null>(null);
-
-  const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "admin";
 
   const load = useCallback(async () => {
     setError(null);
@@ -171,28 +167,26 @@ export default function ConocimientoPage() {
               {n.company && <span>🏢 {n.company}</span>}
               <span>✍️ {n.author ?? "—"}</span>
               <span>{new Date(n.created_at).toLocaleDateString("es-ES")}</span>
-              {isAdmin && (
-                <button
-                  onClick={() =>
-                    setEditTarget({
-                      id: n.id,
-                      name: n.name,
-                      content: n.content,
-                      company: n.company,
-                      category: n.category,
-                    })
-                  }
-                  className="ml-auto font-medium text-belsue hover:underline"
-                >
-                  Editar
-                </button>
-              )}
+              <button
+                onClick={() =>
+                  setEditTarget({
+                    id: n.id,
+                    name: n.name,
+                    content: n.content,
+                    company: n.company,
+                    category: n.category,
+                  })
+                }
+                className="ml-auto font-medium text-belsue hover:underline"
+              >
+                Editar
+              </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Modal de edición de nota (solo admin) */}
+      {/* Modal de edición de nota (cualquier usuario) */}
       {editTarget && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
           <div className="my-8 w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
