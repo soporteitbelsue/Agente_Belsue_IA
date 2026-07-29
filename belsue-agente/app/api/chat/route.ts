@@ -9,6 +9,7 @@ import {
   saveMessage,
   userOwnsConversation,
 } from "@/lib/conversations";
+import { sendNotification, escapeHtml } from "@/lib/email";
 import type { Source } from "@/types";
 
 export const runtime = "nodejs";
@@ -185,6 +186,26 @@ export async function POST(req: NextRequest) {
             console.error("[chat] Error al guardar la respuesta:", saveErr);
           }
         }
+
+        // 5. Si el agente no supo responder, avisar por correo con la consulta
+        //    (para detectar qué conocimiento falta). Best-effort.
+        const noSupo =
+          answer.trim().length > 0 &&
+          (sources.length === 0 || /no encuentro esa informaci/i.test(answer));
+        if (noSupo) {
+          await sendNotification(
+            "⚠️ El Formador no supo responder una consulta",
+            `<p>El asistente no encontró respuesta a esta consulta de un asesor:</p>
+             <blockquote style="border-left:3px solid #8a0c3c;padding-left:12px;color:#333">${escapeHtml(
+               query,
+             )}</blockquote>
+             <p style="color:#666"><b>Respuesta dada:</b> ${escapeHtml(
+               answer.slice(0, 400),
+             )}</p>
+             <p>Quizá convenga subir un documento o añadir una nota que cubra este tema.</p>`,
+          );
+        }
+
         controller.close();
       }
     },

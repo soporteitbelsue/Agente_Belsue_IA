@@ -23,7 +23,7 @@ documentación aseguradora. Construido con **Next.js 14 (App Router)**,
 | Estilos         | Tailwind CSS                                  |
 | Base de datos   | Supabase / PostgreSQL + pgvector             |
 | IA              | OpenAI (`gpt-4o`, `text-embedding-3-small`)  |
-| Parsing         | `pdf-parse`, `mammoth`                        |
+| Parsing         | `unpdf`, `mammoth`                            |
 | Validación      | `zod`                                         |
 
 ## Requisitos
@@ -137,7 +137,7 @@ belsue-agente/
 
 - Asegúrate de que `UPLOAD_DIR` apunta a una ruta persistente y con permisos de
   escritura del proceso de Node.
-- Las API routes usan `runtime = "nodejs"` (necesario para `fs`, `pdf-parse` y
+- Las API routes usan `runtime = "nodejs"` (necesario para `fs`, `unpdf` y
   `mammoth`).
 - No expongas nunca `SUPABASE_SERVICE_ROLE_KEY` al cliente.
 ```

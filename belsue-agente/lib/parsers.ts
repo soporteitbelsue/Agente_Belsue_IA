@@ -17,56 +17,77 @@ function cleanText(text: string): string {
 }
 
 /**
- * Render personalizado para pdf-parse. Muchos PDFs no incluyen espacios
- * explícitos entre palabras; reconstruimos los espacios y los saltos de
- * línea a partir de la posición (coordenadas) de cada fragmento de texto.
+ * Reconstruye el texto de una página a partir de los "text items" de pdf.js.
+ * Muchos PDFs no incluyen espacios explícitos entre palabras; los inferimos
+ * (junto con los saltos de línea) a partir de la posición (coordenadas) de
+ * cada fragmento.
  */
-// eslint-disable-next-line
-function renderPageWithSpaces(pageData: any): Promise<string> {
-  return pageData
-    .getTextContent({ normalizeWhitespace: true, disableCombineTextItems: false })
-    // eslint-disable-next-line
-    .then((textContent: any) => {
-      let text = "";
-      let lastX: number | null = null;
-      let lastY: number | null = null;
-      let lastWidth = 0;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function itemsToText(items: any[]): string {
+  let text = "";
+  let lastX: number | null = null;
+  let lastY: number | null = null;
+  let lastWidth = 0;
 
-      // eslint-disable-next-line
-      for (const item of textContent.items as any[]) {
-        const str: string = item.str ?? "";
-        const x: number = item.transform?.[4] ?? 0;
-        const y: number = item.transform?.[5] ?? 0;
-        const fontHeight: number = item.height || 8;
+  for (const item of items) {
+    // pdf.js intercala marcadores de fin de línea sin `str`.
+    if (item.str === undefined && item.hasEOL) {
+      if (!text.endsWith("\n")) text += "\n";
+      lastX = null;
+      continue;
+    }
 
-        if (lastY !== null && Math.abs(y - lastY) > fontHeight * 0.5) {
-          // Cambio de línea vertical.
-          if (!text.endsWith("\n")) text += "\n";
-        } else if (lastX !== null) {
-          // Mismo renglón: si hay hueco horizontal, falta un espacio.
-          const gap = x - (lastX + lastWidth);
-          if (
-            gap > fontHeight * 0.2 &&
-            !text.endsWith(" ") &&
-            !text.endsWith("\n") &&
-            !str.startsWith(" ")
-          ) {
-            text += " ";
-          }
-        }
+    const str: string = item.str ?? "";
+    const x: number = item.transform?.[4] ?? 0;
+    const y: number = item.transform?.[5] ?? 0;
+    const fontHeight: number = item.height || 8;
 
-        text += str;
-        lastX = x;
-        lastY = y;
-        lastWidth = item.width ?? 0;
-
-        if (item.hasEOL) {
-          if (!text.endsWith("\n")) text += "\n";
-          lastX = null;
-        }
+    if (lastY !== null && Math.abs(y - lastY) > fontHeight * 0.5) {
+      // Cambio de línea vertical.
+      if (!text.endsWith("\n")) text += "\n";
+    } else if (lastX !== null) {
+      // Mismo renglón: si hay hueco horizontal, falta un espacio.
+      const gap = x - (lastX + lastWidth);
+      if (
+        gap > fontHeight * 0.2 &&
+        !text.endsWith(" ") &&
+        !text.endsWith("\n") &&
+        !str.startsWith(" ")
+      ) {
+        text += " ";
       }
-      return text;
-    });
+    }
+
+    text += str;
+    lastX = x;
+    lastY = y;
+    lastWidth = item.width ?? 0;
+
+    if (item.hasEOL) {
+      if (!text.endsWith("\n")) text += "\n";
+      lastX = null;
+    }
+  }
+  return text;
+}
+
+/**
+ * Extrae el texto de un PDF usando `unpdf` (que trae una versión moderna de
+ * pdf.js). Reemplaza a `pdf-parse`, cuyo pdf.js de 2018 fallaba en algunos
+ * PDFs con "Invalid number: ... (charCode N)".
+ */
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  const { getDocumentProxy } = await import("unpdf");
+  // unpdf reutiliza el buffer internamente; copiamos a un Uint8Array propio.
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+
+  const pages: string[] = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const { items } = await page.getTextContent();
+    pages.push(itemsToText(items));
+  }
+  return pages.join("\n");
 }
 
 /**
@@ -80,10 +101,7 @@ export async function extractTextFromBuffer(
 
   switch (type) {
     case "pdf": {
-      // Import dinámico: pdf-parse ejecuta código al cargarse.
-      const pdfParse = (await import("pdf-parse")).default;
-      const data = await pdfParse(buffer, { pagerender: renderPageWithSpaces });
-      return cleanText(data.text);
+      return cleanText(await extractPdfText(buffer));
     }
     case "docx": {
       const result = await mammoth.extractRawText({ buffer });

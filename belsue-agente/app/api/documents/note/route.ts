@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreText } from "@/lib/embeddings";
+import { sendNotification, escapeHtml } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -151,6 +152,25 @@ export async function POST(req: NextRequest) {
       procErr instanceof Error ? procErr.message : "Error al indexar la nota.";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
+
+  // 3. Avisar por correo de la nueva nota (best-effort, no bloquea la respuesta).
+  const { data: author } = await supabase
+    .from("users")
+    .select("name, email")
+    .eq("id", userId)
+    .maybeSingle();
+  await sendNotification(
+    "🟢 Nueva nota de conocimiento en el Formador",
+    `<p><b>${escapeHtml(author?.name ?? "Un usuario")}</b> (${escapeHtml(
+      author?.email ?? "",
+    )}) ha añadido una nota:</p>
+     <p><b>Título:</b> ${escapeHtml(name)}${
+       company ? ` · <b>Compañía:</b> ${escapeHtml(company)}` : ""
+     }${category ? ` · <b>Categoría:</b> ${escapeHtml(category)}` : ""}</p>
+     <blockquote style="border-left:3px solid #8a0c3c;padding-left:12px;color:#333">${escapeHtml(
+       content.slice(0, 600),
+     )}</blockquote>`,
+  );
 
   return NextResponse.json(
     {
