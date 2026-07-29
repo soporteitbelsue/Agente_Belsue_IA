@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
         //    (para detectar qué conocimiento falta). Best-effort.
         const noSupo =
           answer.trim().length > 0 &&
-          (sources.length === 0 || /no encuentro esa informaci/i.test(answer));
+          (sources.length === 0 || NO_ANSWER_RE.test(answer));
         if (noSupo) {
           await sendNotification(
             "⚠️ El Formador no supo responder una consulta",
