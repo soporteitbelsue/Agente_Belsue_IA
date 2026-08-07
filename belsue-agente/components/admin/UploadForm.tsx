@@ -2,21 +2,15 @@
 
 import { useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase";
+import {
+  DEFAULT_SCOPE,
+  SCOPE_LIST,
+  scopeConfig,
+  type AgentScope,
+} from "@/lib/scopes";
 
 // Debe coincidir con DOCUMENTS_BUCKET de lib/storage.ts.
 const DOCUMENTS_BUCKET = "documentos";
-
-const CATEGORIES = [
-  { value: "general", label: "General" },
-  { value: "auto", label: "Auto" },
-  { value: "moto", label: "Moto" },
-  { value: "hogar", label: "Hogar" },
-  { value: "vida", label: "Vida" },
-  { value: "salud", label: "Salud" },
-  { value: "decesos", label: "Decesos" },
-  { value: "viaje", label: "Asistencia en viaje" },
-  { value: "rc", label: "Responsabilidad Civil" },
-];
 
 const ACCEPTED_EXT = [".pdf", ".docx", ".txt"];
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -39,11 +33,21 @@ function getExt(filename: string): string {
   return dot >= 0 ? filename.slice(dot).toLowerCase() : "";
 }
 
-export default function UploadForm() {
+/**
+ * Subida de documentos. `scope` fija la pestaña por defecto a la que se envía
+ * el documento; el desplegable permite cambiarla (el panel de administración lo
+ * usa sin prefijar ninguna).
+ */
+export default function UploadForm({
+  scope = DEFAULT_SCOPE,
+}: {
+  scope?: AgentScope;
+} = {}) {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [company, setCompany] = useState("");
+  const [docScope, setDocScope] = useState<AgentScope>(scope);
   const [category, setCategory] = useState("general");
 
   const [status, setStatus] = useState<Status>("idle");
@@ -51,6 +55,17 @@ export default function UploadForm() {
   const [dragOver, setDragOver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const config = scopeConfig(docScope);
+
+  /** Al cambiar de ámbito, la categoría anterior puede no existir en el nuevo. */
+  function changeScope(next: AgentScope) {
+    setDocScope(next);
+    const stillValid = scopeConfig(next).categories.some(
+      (c) => c.value === category,
+    );
+    if (!stillValid) setCategory("general");
+  }
 
   function validateFile(f: File): string | null {
     const lower = f.name.toLowerCase();
@@ -82,6 +97,7 @@ export default function UploadForm() {
     setName("");
     setDescription("");
     setCompany("");
+    setDocScope(scope);
     setCategory("general");
     setStatus("idle");
     setError(null);
@@ -114,6 +130,7 @@ export default function UploadForm() {
           description: description || undefined,
           company: company || undefined,
           category,
+          scope: docScope,
         }),
       });
       const urlData = await urlRes.json();
@@ -250,14 +267,35 @@ export default function UploadForm() {
           />
         </label>
 
+        <label className="text-sm sm:col-span-2">
+          <span className="mb-1 block font-medium text-gray-600">
+            Pestaña del asistente <span className="text-belsue">*</span>
+          </span>
+          <select
+            value={docScope}
+            onChange={(e) => changeScope(e.target.value as AgentScope)}
+            disabled={busy}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+          >
+            {SCOPE_LIST.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-gray-400">
+            El documento solo se usará para responder en esta pestaña.
+          </span>
+        </label>
+
         <label className="text-sm">
           <span className="mb-1 block font-medium text-gray-600">
-            Compañía aseguradora
+            {config.secondaryField.label}
           </span>
           <input
             value={company}
             onChange={(e) => setCompany(e.target.value)}
-            placeholder="Ej: Mapfre, Allianz, AXA, Generali..."
+            placeholder={config.secondaryField.placeholder}
             disabled={busy}
             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
           />
@@ -273,7 +311,7 @@ export default function UploadForm() {
             disabled={busy}
             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
           >
-            {CATEGORIES.map((c) => (
+            {config.categories.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>

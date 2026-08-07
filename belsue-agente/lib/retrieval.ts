@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/supabase";
 import { generateEmbedding } from "@/lib/embeddings";
+import type { AgentScope } from "@/lib/scopes";
 import type { MatchChunkRow, Source } from "@/types";
 
 // Umbral de similitud coseno. Con text-embedding-3-small el contenido
@@ -11,10 +12,15 @@ const MATCH_THRESHOLD = 0.3;
 /**
  * Recupera los fragmentos más relevantes para una consulta (RAG).
  * Genera el embedding de la query y llama a la función SQL `match_chunks`.
+ *
+ * `scope` restringe la búsqueda a los documentos y notas de ese ámbito, para
+ * que cada pestaña del asistente responda solo con su propio material.
+ * Omitirlo busca en todos los ámbitos.
  */
 export async function retrieveRelevantChunks(
   query: string,
   matchCount = 5,
+  scope?: AgentScope,
 ): Promise<Source[]> {
   const supabase = supabaseServer();
   const queryEmbedding = await generateEmbedding(query);
@@ -23,6 +29,7 @@ export async function retrieveRelevantChunks(
     query_embedding: queryEmbedding,
     match_threshold: MATCH_THRESHOLD,
     match_count: matchCount,
+    filter_scope: scope ?? null,
   });
 
   if (error) {

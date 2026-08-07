@@ -7,8 +7,15 @@ documentación aseguradora. Construido con **Next.js 14 (App Router)**,
 
 ## Características
 
-- 💬 **Chat IA** (`/chat`): responde preguntas basándose únicamente en los
-  documentos indexados y cita las fuentes utilizadas.
+- 💬 **Chat IA** en dos pestañas independientes, cada una con su propio
+  conocimiento, historial y prompt (ver [`lib/scopes.ts`](lib/scopes.ts)):
+  - **El Formador** (`/chat`): producto, compañías y condicionados.
+  - **Procedimientos** (`/procedimientos`): cómo trabajamos por dentro
+    (organización de la oficina, circuitos, herramientas, quién hace qué).
+
+  Ambas responden basándose únicamente en el material indexado de su ámbito y
+  citan las fuentes utilizadas. Los documentos y notas llevan una columna
+  `scope` que decide en qué pestaña se usan.
 - 📤 **Panel de administración** (`/admin`): subida de documentos PDF, DOCX y TXT
   con metadatos (compañía, categoría, descripción).
 - 🔎 **Búsqueda semántica** mediante embeddings (`text-embedding-3-small`) y la
@@ -70,6 +77,10 @@ UPLOAD_DIR=/ruta/en/servidor/documentos
    - Crea las tablas `documents` y `document_chunks`.
    - Crea la función `match_chunks` para la búsqueda por similitud.
    - Crea el índice `ivfflat` para búsquedas eficientes.
+4. Ejecuta después, en orden, los archivos de
+   [`supabase/migrations/`](supabase/migrations/). En una base de datos ya en
+   uso son la forma de incorporar los cambios posteriores al esquema base
+   (notas de conocimiento, autoría y ámbitos de las pestañas).
 
 > **Nota sobre el índice ivfflat:** funciona mejor cuando ya hay datos. Si
 > insertas muchos documentos, puedes recrear el índice posteriormente para

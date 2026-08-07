@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS documents (
   file_size   integer NOT NULL,
   category    text,
   company     text,
+  -- Ámbito del asistente al que pertenece: 'seguros' (El Formador) o
+  -- 'procedimientos' (cómo trabajamos por dentro). Ver migración 003.
+  scope       text NOT NULL DEFAULT 'seguros'
+              CHECK (scope IN ('seguros', 'procedimientos')),
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
@@ -33,10 +37,12 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 );
 
 -- 4. Función de búsqueda por similitud
+-- `filter_scope` NULL busca en todos los ámbitos; con valor, restringe a él.
 CREATE OR REPLACE FUNCTION match_chunks(
   query_embedding vector(1536),
   match_threshold float,
-  match_count int
+  match_count int,
+  filter_scope text DEFAULT NULL
 )
 RETURNS TABLE (
   id uuid,
@@ -46,7 +52,8 @@ RETURNS TABLE (
   similarity float,
   document_name text,
   document_category text,
-  document_company text
+  document_company text,
+  document_scope text
 )
 LANGUAGE sql STABLE AS $$
   SELECT
@@ -57,10 +64,12 @@ LANGUAGE sql STABLE AS $$
     1 - (dc.embedding <=> query_embedding) AS similarity,
     d.name AS document_name,
     d.category AS document_category,
-    d.company AS document_company
+    d.company AS document_company,
+    d.scope AS document_scope
   FROM document_chunks dc
   JOIN documents d ON d.id = dc.document_id
   WHERE 1 - (dc.embedding <=> query_embedding) > match_threshold
+    AND (filter_scope IS NULL OR d.scope = filter_scope)
   ORDER BY dc.embedding <=> query_embedding
   LIMIT match_count;
 $$;

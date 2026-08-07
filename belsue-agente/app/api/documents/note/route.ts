@@ -4,6 +4,12 @@ import { supabaseServer } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreText } from "@/lib/embeddings";
 import { sendNotification, escapeHtml } from "@/lib/email";
+import {
+  AGENT_SCOPES,
+  DEFAULT_SCOPE,
+  parseScope,
+  scopeConfig,
+} from "@/lib/scopes";
 
 export const runtime = "nodejs";
 
@@ -16,6 +22,7 @@ const bodySchema = z.object({
   description: z.string().trim().optional(),
   company: z.string().trim().optional(),
   category: z.string().trim().optional(),
+  scope: z.enum(AGENT_SCOPES).optional().default(DEFAULT_SCOPE),
 });
 
 interface NoteRow {
@@ -24,6 +31,7 @@ interface NoteRow {
   content: string | null;
   company: string | null;
   category: string | null;
+  scope: string | null;
   created_at: string;
   users: { name: string } | null;
 }
@@ -43,11 +51,15 @@ export async function GET(req: NextRequest) {
     const supabase = supabaseServer();
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category");
+    const scope = parseScope(searchParams.get("scope"));
 
     let query = supabase
       .from("documents")
-      .select("id, name, content, company, category, created_at, users(name)")
+      .select(
+        "id, name, content, company, category, scope, created_at, users(name)",
+      )
       .eq("file_type", "nota")
+      .eq("scope", scope)
       .order("created_at", { ascending: false });
 
     if (category) query = query.eq("category", category);
@@ -65,6 +77,7 @@ export async function GET(req: NextRequest) {
       content: n.content,
       company: n.company,
       category: n.category,
+      scope: parseScope(n.scope),
       created_at: n.created_at,
       author: n.users?.name ?? null,
     }));
@@ -110,7 +123,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { name, content, description, company, category } = parsed;
+  const { name, content, description, company, category, scope } = parsed;
 
   const supabase = supabaseServer();
 
@@ -125,6 +138,7 @@ export async function POST(req: NextRequest) {
       file_size: Buffer.byteLength(content, "utf8"),
       category: category ?? null,
       company: company ?? null,
+      scope,
       content,
       created_by: userId,
     })
@@ -159,13 +173,18 @@ export async function POST(req: NextRequest) {
     .select("name, email")
     .eq("id", userId)
     .maybeSingle();
+  const config = scopeConfig(scope);
   await sendNotification(
-    "🟢 Nueva nota de conocimiento en el Formador",
+    `🟢 Nueva nota en ${config.title}`,
     `<p><b>${escapeHtml(author?.name ?? "Un usuario")}</b> (${escapeHtml(
       author?.email ?? "",
-    )}) ha añadido una nota:</p>
+    )}) ha añadido una nota en <b>${escapeHtml(config.title)}</b>:</p>
      <p><b>Título:</b> ${escapeHtml(name)}${
-       company ? ` · <b>Compañía:</b> ${escapeHtml(company)}` : ""
+       company
+         ? ` · <b>${escapeHtml(config.secondaryField.label)}:</b> ${escapeHtml(
+             company,
+           )}`
+         : ""
      }${category ? ` · <b>Categoría:</b> ${escapeHtml(category)}` : ""}</p>
      <blockquote style="border-left:3px solid #8a0c3c;padding-left:12px;color:#333">${escapeHtml(
        content.slice(0, 600),

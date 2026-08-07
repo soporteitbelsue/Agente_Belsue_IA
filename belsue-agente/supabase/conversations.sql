@@ -8,12 +8,18 @@ CREATE TABLE IF NOT EXISTS conversations (
   user_id         uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title           text,
   message_count   integer NOT NULL DEFAULT 0,
+  -- Pestaña del asistente en la que ocurre la conversación. Ver migración 003.
+  scope           text NOT NULL DEFAULT 'seguros'
+                  CHECK (scope IN ('seguros', 'procedimientos')),
   last_message_at timestamptz DEFAULT now(),
   created_at      timestamptz DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS conversations_user_last_idx
   ON conversations (user_id, last_message_at DESC);
+
+CREATE INDEX IF NOT EXISTS conversations_user_scope_last_idx
+  ON conversations (user_id, scope, last_message_at DESC);
 
 -- Tabla de mensajes
 CREATE TABLE IF NOT EXISTS messages (

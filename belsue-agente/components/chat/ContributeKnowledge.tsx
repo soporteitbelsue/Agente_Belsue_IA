@@ -2,14 +2,22 @@
 
 import { useState } from "react";
 import NoteForm from "@/components/admin/NoteForm";
+import { DEFAULT_SCOPE, scopeConfig, type AgentScope } from "@/lib/scopes";
 
 /**
  * Botón "Aportar conocimiento" para el chat: abre un modal con el formulario
  * de nota. Disponible para cualquier usuario autenticado (asesor o admin), para
  * que todo el equipo pueda alimentar la base de conocimiento.
+ *
+ * La nota se crea en el ámbito de la pestaña desde la que se abre.
  */
-export default function ContributeKnowledge() {
+export default function ContributeKnowledge({
+  scope = DEFAULT_SCOPE,
+}: {
+  scope?: AgentScope;
+} = {}) {
   const [open, setOpen] = useState(false);
+  const config = scopeConfig(scope);
 
   return (
     <>
@@ -30,7 +38,9 @@ export default function ContributeKnowledge() {
             d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
           />
         </svg>
-        Aportar conocimiento
+        {scope === "procedimientos"
+          ? "Aportar procedimiento"
+          : "Aportar conocimiento"}
       </button>
 
       {open && (
@@ -38,8 +48,7 @@ export default function ContributeKnowledge() {
           <div className="my-8 w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-start justify-between gap-3">
               <p className="text-xs text-gray-500">
-                Lo que aportes aquí lo usará el agente para responder a todo el
-                equipo. Sé concreto (compañía, ramo, condición).
+                {config.note.contributeHint}
               </p>
               <button
                 onClick={() => setOpen(false)}
@@ -62,7 +71,7 @@ export default function ContributeKnowledge() {
               </button>
             </div>
 
-            <NoteForm embedded />
+            <NoteForm embedded scope={scope} />
 
             <div className="mt-4 text-right">
               <button

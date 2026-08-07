@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/conversations";
 import { createSignedUpload } from "@/lib/storage";
+import { AGENT_SCOPES, DEFAULT_SCOPE } from "@/lib/scopes";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ const bodySchema = z.object({
   description: z.string().trim().optional(),
   company: z.string().trim().optional(),
   category: z.string().trim().optional(),
+  scope: z.enum(AGENT_SCOPES).optional().default(DEFAULT_SCOPE),
 });
 
 /**
@@ -70,6 +72,7 @@ export async function POST(req: NextRequest) {
       file_size: body.fileSize,
       category: body.category ?? null,
       company: body.company ?? null,
+      scope: body.scope,
       created_by: userId,
     })
     .select("id")

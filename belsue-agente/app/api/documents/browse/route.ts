@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/conversations";
+import { parseScope } from "@/lib/scopes";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,7 @@ interface Row {
   description: string | null;
   company: string | null;
   category: string | null;
+  scope: string | null;
   file_type: string;
   file_size: number;
   file_path: string | null;
@@ -35,13 +37,15 @@ export async function GET(req: NextRequest) {
     const supabase = supabaseServer();
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category");
+    const scope = parseScope(searchParams.get("scope"));
 
     let query = supabase
       .from("documents")
       .select(
-        "id, name, description, company, category, file_type, file_size, file_path, created_at",
+        "id, name, description, company, category, scope, file_type, file_size, file_path, created_at",
       )
       .in("file_type", ["pdf", "docx", "txt"])
+      .eq("scope", scope)
       .order("created_at", { ascending: false });
 
     if (category) query = query.eq("category", category);
@@ -58,6 +62,7 @@ export async function GET(req: NextRequest) {
       description: d.description,
       company: d.company,
       category: d.category,
+      scope: parseScope(d.scope),
       file_type: d.file_type,
       file_size: d.file_size,
       created_at: d.created_at,

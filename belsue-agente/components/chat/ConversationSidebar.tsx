@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatDistanceToNow, isToday, isThisWeek, isThisMonth } from "date-fns";
 import { es } from "date-fns/locale";
 import ContributeKnowledge from "@/components/chat/ContributeKnowledge";
+import { DEFAULT_SCOPE, scopeConfig, type AgentScope } from "@/lib/scopes";
 import type { Conversation } from "@/types";
 
 type ConvItem = Pick<
@@ -38,13 +39,17 @@ function groupByDate(items: ConvItem[]): Group[] {
 }
 
 export default function ConversationSidebar({
+  scope = DEFAULT_SCOPE,
   onNavigate,
 }: {
+  /** Pestaña activa: su historial es independiente del de la otra. */
+  scope?: AgentScope;
   onNavigate?: () => void;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeId = searchParams.get("id");
+  const config = scopeConfig(scope);
 
   const [conversations, setConversations] = useState<ConvItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +57,7 @@ export default function ConversationSidebar({
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/conversations");
+      const res = await fetch(`/api/conversations?scope=${scope}`);
       const data = await res.json();
       if (res.ok) setConversations(data.conversations ?? []);
     } catch {
@@ -60,7 +65,7 @@ export default function ConversationSidebar({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     load();
@@ -70,7 +75,7 @@ export default function ConversationSidebar({
   }, [load]);
 
   function goTo(id: string | null) {
-    router.push(id ? `/chat?id=${id}` : "/chat");
+    router.push(id ? `${config.path}?id=${id}` : config.path);
     onNavigate?.();
   }
 
@@ -99,13 +104,15 @@ export default function ConversationSidebar({
           </svg>
           Nueva conversación
         </button>
-        <ContributeKnowledge />
+        <ContributeKnowledge scope={scope} />
         <Link
-          href="/conocimiento"
+          href={`/conocimiento?scope=${scope}`}
           onClick={() => onNavigate?.()}
           className="block px-1 text-center text-xs font-medium text-gray-500 hover:text-belsue"
         >
-          Ver conocimiento del equipo →
+          {scope === "procedimientos"
+            ? "Ver procedimientos del equipo →"
+            : "Ver conocimiento del equipo →"}
         </Link>
       </div>
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
+import { isAgentScope, parseScope } from "@/lib/scopes";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,7 @@ interface DocumentRow {
   description: string | null;
   category: string | null;
   company: string | null;
+  scope: string | null;
   file_type: string;
   file_size: number;
   file_path: string | null;
@@ -27,6 +29,8 @@ function isStoragePath(p: string | null): boolean {
  * Query params opcionales:
  *   - category: filtra por categoría exacta
  *   - company: filtra por compañía (parcial, case-insensitive)
+ *   - scope: filtra por ámbito ('seguros' | 'procedimientos'); sin él se
+ *     devuelven los de todos los ámbitos (vista global del administrador)
  */
 export async function GET(req: NextRequest) {
   const unauthorized = await requireAdmin();
@@ -37,11 +41,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category");
     const company = searchParams.get("company");
+    const scope = searchParams.get("scope");
 
     let query = supabase
       .from("documents")
       .select(
-        "id, name, description, category, company, file_type, file_size, file_path, created_at, document_chunks(count)",
+        "id, name, description, category, company, scope, file_type, file_size, file_path, created_at, document_chunks(count)",
       )
       .order("created_at", { ascending: false });
 
@@ -50,6 +55,9 @@ export async function GET(req: NextRequest) {
     }
     if (company) {
       query = query.ilike("company", `%${company}%`);
+    }
+    if (isAgentScope(scope)) {
+      query = query.eq("scope", scope);
     }
 
     const { data, error } = await query;
@@ -65,6 +73,7 @@ export async function GET(req: NextRequest) {
       description: doc.description,
       category: doc.category,
       company: doc.company,
+      scope: parseScope(doc.scope),
       file_type: doc.file_type,
       file_size: doc.file_size,
       created_at: doc.created_at,

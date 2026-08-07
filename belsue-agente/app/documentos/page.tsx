@@ -1,8 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import UploadForm from "@/components/admin/UploadForm";
+import {
+  CATEGORY_BADGE,
+  categoryFilterOptions,
+  categoryLabel,
+  parseScope,
+  scopeConfig,
+  type AgentScope,
+} from "@/lib/scopes";
 
 interface Doc {
   id: string;
@@ -10,36 +19,12 @@ interface Doc {
   description: string | null;
   company: string | null;
   category: string | null;
+  scope: AgentScope;
   file_type: string;
   file_size: number;
   created_at: string;
   downloadable: boolean;
 }
-
-const CATEGORY_OPTIONS = [
-  { value: "", label: "Todas" },
-  { value: "general", label: "General" },
-  { value: "auto", label: "Auto" },
-  { value: "moto", label: "Moto" },
-  { value: "hogar", label: "Hogar" },
-  { value: "vida", label: "Vida" },
-  { value: "salud", label: "Salud" },
-  { value: "decesos", label: "Decesos" },
-  { value: "viaje", label: "Viaje" },
-  { value: "rc", label: "RC" },
-];
-
-const CATEGORY_BADGE: Record<string, string> = {
-  auto: "bg-blue-100 text-blue-700",
-  moto: "bg-orange-100 text-orange-700",
-  hogar: "bg-green-100 text-green-700",
-  vida: "bg-purple-100 text-purple-700",
-  salud: "bg-pink-100 text-pink-700",
-  decesos: "bg-gray-200 text-gray-700",
-  viaje: "bg-teal-100 text-teal-700",
-  rc: "bg-indigo-100 text-indigo-700",
-  general: "bg-belsue/10 text-belsue",
-};
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -47,7 +32,11 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function DocumentosPage() {
+function DocumentosContent() {
+  // El ámbito viene de la pestaña desde la que se ha llegado.
+  const scope = parseScope(useSearchParams().get("scope"));
+  const config = scopeConfig(scope);
+
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,8 +48,9 @@ export default function DocumentosPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const qs = category ? `?category=${category}` : "";
-      const res = await fetch(`/api/documents/browse${qs}`);
+      const params = new URLSearchParams({ scope });
+      if (category) params.set("category", category);
+      const res = await fetch(`/api/documents/browse?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error al cargar documentos.");
       setDocs(data.documents as Doc[]);
@@ -69,7 +59,7 @@ export default function DocumentosPage() {
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, [category, scope]);
 
   useEffect(() => {
     load();
@@ -77,6 +67,11 @@ export default function DocumentosPage() {
     window.addEventListener("document-uploaded", handler);
     return () => window.removeEventListener("document-uploaded", handler);
   }, [load]);
+
+  // Al cambiar de pestaña, la categoría filtrada puede no existir en la nueva.
+  useEffect(() => {
+    setCategory("");
+  }, [scope]);
 
   async function download(doc: Doc) {
     setDownloadingId(doc.id);
@@ -107,15 +102,13 @@ export default function DocumentosPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Link
-            href="/chat"
+            href={config.path}
             className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-belsue hover:underline"
           >
-            ← Volver al chat
+            ← Volver a {config.title}
           </Link>
           <h1 className="text-2xl font-bold text-gray-800">Documentos</h1>
-          <p className="text-sm text-gray-500">
-            Consulta, sube y descarga los documentos y condicionados del equipo.
-          </p>
+          <p className="text-sm text-gray-500">{config.documentsDescription}</p>
         </div>
         <button
           onClick={() => setShowUpload(true)}
@@ -142,7 +135,7 @@ export default function DocumentosPage() {
                 </svg>
               </button>
             </div>
-            <UploadForm />
+            <UploadForm scope={scope} />
           </div>
         </div>
       )}
@@ -151,7 +144,11 @@ export default function DocumentosPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre o compañía…"
+          placeholder={
+            scope === "procedimientos"
+              ? "Buscar por nombre o área…"
+              : "Buscar por nombre o compañía…"
+          }
           className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-belsue focus:outline-none"
         />
         <select
@@ -159,7 +156,7 @@ export default function DocumentosPage() {
           onChange={(e) => setCategory(e.target.value)}
           className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-belsue focus:outline-none"
         >
-          {CATEGORY_OPTIONS.map((c) => (
+          {categoryFilterOptions(scope).map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
             </option>
@@ -173,7 +170,7 @@ export default function DocumentosPage() {
       {!loading && filtered.length === 0 && (
         <div className="py-16 text-center text-sm text-gray-500">
           {docs.length === 0
-            ? "Aún no hay documentos subidos."
+            ? "Aún no hay documentos subidos en esta pestaña."
             : "No hay resultados para esa búsqueda."}
         </div>
       )}
@@ -184,7 +181,9 @@ export default function DocumentosPage() {
             <thead className="border-b border-gray-200 text-gray-500">
               <tr>
                 <th className="px-4 py-2 font-medium">Nombre</th>
-                <th className="px-4 py-2 font-medium">Compañía</th>
+                <th className="px-4 py-2 font-medium">
+                  {config.secondaryField.label}
+                </th>
                 <th className="px-4 py-2 font-medium">Categoría</th>
                 <th className="px-4 py-2 font-medium">Tamaño</th>
                 <th className="px-4 py-2 font-medium">Acción</th>
@@ -200,11 +199,11 @@ export default function DocumentosPage() {
                   <td className="px-4 py-2">
                     {d.category ? (
                       <span
-                        className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
+                        className={`rounded px-2 py-0.5 text-xs font-medium ${
                           CATEGORY_BADGE[d.category] ?? "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        {d.category}
+                        {categoryLabel(scope, d.category)}
                       </span>
                     ) : (
                       "—"
@@ -241,5 +240,13 @@ export default function DocumentosPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function DocumentosPage() {
+  return (
+    <Suspense fallback={null}>
+      <DocumentosContent />
+    </Suspense>
   );
 }

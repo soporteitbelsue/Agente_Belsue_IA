@@ -1,39 +1,35 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_SCOPE, scopeConfig, type AgentScope } from "@/lib/scopes";
 import type { ChatMessage, Message, Source } from "@/types";
 import MessageBubble from "./MessageBubble";
 import SourcesPanel from "./SourcesPanel";
 
-const WELCOME_MESSAGE: ChatMessage = {
-  role: "assistant",
-  content: `¡Hola! Soy el asistente interno de Belsué. Puedo ayudarte con dudas sobre:
-- Coberturas y condicionados de compañías aseguradoras
-- Comparativas entre productos
-- Procedimientos internos
-- Cualquier duda sobre los ramos que gestionamos
-
-¿En qué puedo ayudarte hoy?`,
-};
-
-const SUGGESTIONS = [
-  "¿Qué cubre el seguro de hogar de Mapfre?",
-  "Diferencias entre cobertura de terceros y todo riesgo",
-  "¿Cómo tramitar un siniestro de auto?",
-];
-
 const MAX_TEXTAREA_LINES = 4;
 
 interface Props {
+  /** Pestaña del asistente: decide bienvenida, sugerencias y conocimiento. */
+  scope?: AgentScope;
   conversationId?: string;
   onConversationCreated?: (id: string) => void;
 }
 
 export default function ChatWindow({
+  scope = DEFAULT_SCOPE,
   conversationId,
   onConversationCreated,
 }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const config = scopeConfig(scope);
+
+  // La bienvenida se compara por identidad para distinguirla de los mensajes
+  // reales, así que debe ser estable mientras no cambie de pestaña.
+  const welcomeMessage = useMemo<ChatMessage>(
+    () => ({ role: "assistant", content: config.welcome }),
+    [config.welcome],
+  );
+
+  const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +54,7 @@ export default function ChatWindow({
     currentIdRef.current = conversationId ?? null;
 
     if (!conversationId) {
-      setMessages([WELCOME_MESSAGE]);
+      setMessages([welcomeMessage]);
       setError(null);
       return;
     }
@@ -79,7 +75,7 @@ export default function ChatWindow({
               feedback: m.feedback ?? null,
             }),
           );
-          setMessages(msgs.length ? msgs : [WELCOME_MESSAGE]);
+          setMessages(msgs.length ? msgs : [welcomeMessage]);
         }
       } catch {
         /* silencioso */
@@ -88,7 +84,7 @@ export default function ChatWindow({
     return () => {
       cancelled = true;
     };
-  }, [conversationId]);
+  }, [conversationId, welcomeMessage]);
 
   // Mantener el espejo del historial sincronizado con el estado.
   useEffect(() => {
@@ -123,13 +119,13 @@ export default function ChatWindow({
       // síncrona, ANTES del setState, para no enviarlo vacío. Excluye el
       // mensaje de bienvenida sintético.
       const history = messagesRef.current
-        .filter((m) => m !== WELCOME_MESSAGE)
+        .filter((m) => m !== welcomeMessage)
         .map((m) => ({ role: m.role, content: m.content }));
 
       let assistantIndex = -1;
       setMessages((prev) => {
         const next: ChatMessage[] = [
-          ...prev.filter((m) => m !== WELCOME_MESSAGE),
+          ...prev.filter((m) => m !== welcomeMessage),
           { role: "user", content: text },
           { role: "assistant", content: "" },
         ];
@@ -149,6 +145,7 @@ export default function ChatWindow({
           body: JSON.stringify({
             query: text,
             messages: history,
+            scope,
             conversationId: currentIdRef.current ?? undefined,
           }),
         });
@@ -259,7 +256,7 @@ export default function ChatWindow({
         window.dispatchEvent(new CustomEvent("conversations-changed"));
       }
     },
-    [onConversationCreated],
+    [onConversationCreated, scope, welcomeMessage],
   );
 
   const sendMessage = useCallback(
@@ -303,7 +300,7 @@ export default function ChatWindow({
   }, []);
 
   const showSuggestions =
-    messages.length === 1 && messages[0] === WELCOME_MESSAGE && !isLoading;
+    messages.length === 1 && messages[0] === welcomeMessage && !isLoading;
 
   // Índice del último mensaje del asistente que tiene fuentes.
   const latestSourceIndex = useMemo(() => {
@@ -342,7 +339,7 @@ export default function ChatWindow({
 
             {showSuggestions && (
               <div className="flex flex-wrap gap-2 pt-2">
-                {SUGGESTIONS.map((s) => (
+                {config.suggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}

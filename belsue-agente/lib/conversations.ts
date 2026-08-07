@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+import { DEFAULT_SCOPE, type AgentScope } from "@/lib/scopes";
 import type { Source } from "@/types";
 
 /** Devuelve el id del usuario autenticado, o null si no hay sesión. */
@@ -11,30 +12,35 @@ export async function getSessionUserId(): Promise<string | null> {
 
 /**
  * Comprueba que una conversación pertenece al usuario.
+ * Si se indica `scope`, exige además que sea del ámbito esperado: así una
+ * pestaña no puede seguir escribiendo en el hilo de la otra.
  * Devuelve true/false; lanza solo si hay error de BD inesperado.
  */
 export async function userOwnsConversation(
   supabase: SupabaseClient,
   conversationId: string,
   userId: string,
+  scope?: AgentScope,
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from("conversations")
-    .select("user_id")
+    .select("user_id, scope")
     .eq("id", conversationId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return Boolean(data) && data!.user_id === userId;
+  if (!data || data.user_id !== userId) return false;
+  return !scope || data.scope === scope;
 }
 
 /** Crea una conversación vacía para el usuario y devuelve su id. */
 export async function createConversation(
   supabase: SupabaseClient,
   userId: string,
+  scope: AgentScope = DEFAULT_SCOPE,
 ): Promise<string> {
   const { data, error } = await supabase
     .from("conversations")
-    .insert({ user_id: userId })
+    .insert({ user_id: userId, scope })
     .select("id")
     .single();
   if (error || !data) {

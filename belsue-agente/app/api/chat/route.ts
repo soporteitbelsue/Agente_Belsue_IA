@@ -10,6 +10,8 @@ import {
   userOwnsConversation,
 } from "@/lib/conversations";
 import { sendNotification, escapeHtml } from "@/lib/email";
+import { buildSystemPrompt } from "@/lib/prompts";
+import { AGENT_SCOPES, DEFAULT_SCOPE, scopeConfig } from "@/lib/scopes";
 import type { Source } from "@/types";
 
 export const runtime = "nodejs";
@@ -17,6 +19,8 @@ export const runtime = "nodejs";
 const bodySchema = z.object({
   query: z.string().min(1, "La consulta no puede estar vacía."),
   conversationId: z.string().uuid().optional(),
+  /** Pestaña desde la que se pregunta: decide prompt y conocimiento usados. */
+  scope: z.enum(AGENT_SCOPES).optional().default(DEFAULT_SCOPE),
   messages: z
     .array(
       z.object({
@@ -28,27 +32,6 @@ const bodySchema = z.object({
     .default([]),
 });
 
-const SYSTEM_TEMPLATE = `Eres el asistente experto interno de Belsué, correduría de seguros. Hablas SIEMPRE con un asesor/corredor profesional de Belsué —nunca con el cliente final—. Tu interlocutor conoce el sector, así que emplea con naturalidad la terminología técnica (suscripción, tarificación, comisiones, garantías, franquicias, recargos, condicionados, siniestralidad, perfil de riesgo) sin simplificarla como si hablaras con un particular.
-
-Tu objetivo es ayudar al corredor a hacer mejor su trabajo: comparar compañías y productos, recomendar la aseguradora más adecuada según el perfil del riesgo, preparar argumentarios de venta, anticipar y resolver objeciones del cliente, aclarar coberturas y exclusiones, y agilizar cotizaciones y trámites.
-
-Responde siempre en español, con tono profesional y directo, de colega a colega. Ve al grano y sé práctico y accionable: cuando proceda, sugiere el siguiente paso o la mejor opción, no te limites a describir.
-
-Prioriza la información de los documentos internos de Belsué y de las notas de conocimiento. Siempre que te bases en ellos, CITA EL NOMBRE CONCRETO del documento o nota dentro de tu respuesta (por ejemplo: "Según el condicionado AUTO_QUALITAS…" o "Según la nota 'Cotización auto conductor novel'…"). Así el corredor sabe de dónde sale cada dato.
-
-Los fragmentos que consultas se muestran además al usuario en un panel de "Fuentes" a la derecha de la conversación. Si el usuario te pide ver la fuente o de dónde sale la información, NO digas que no tienes acceso a los documentos: indícale el/los documentos o notas concretos en los que te has basado (los tienes en el contexto de abajo o en tu respuesta anterior del historial) y recuérdale que puede consultarlos en el panel de "Fuentes".
-
-MUY IMPORTANTE — básate ÚNICAMENTE en el material interno de Belsué (el contexto de abajo, las notas de conocimiento y lo ya tratado en el historial). NO uses tu conocimiento general del sector ni información externa, aunque la sepas.
-
-Ahora bien, cuando el contexto SÍ traiga información relacionada con la pregunta —incluidas las notas y recomendaciones del equipo—, ÚSALA para responder, aunque no esté redactada como una respuesta perfecta o completa: extrae de esos fragmentos lo que ayude al corredor y cítalos. Ese es justo tu trabajo; no descartes una nota o un fragmento por no ser "exacto". Solo cuando en el contexto no haya NADA relacionado con la consulta, dilo con claridad: "No encuentro esa información en los documentos ni notas de Belsué. Si debería estar disponible, súbela como documento o nota y podré usarla." No rellenes los huecos con conocimiento propio ni inventes datos.
-
-Nunca inventes coberturas, exclusiones, precios ni condiciones de pólizas concretas. Si un dato depende de la compañía o del caso, dilo y explica qué haría falta para confirmarlo. El corredor es quien asume el asesoramiento final al cliente.
-
-Contexto de documentos y notas internas disponibles:
-{context}
-
-Si el contexto de esta consulta está vacío: puedes apoyarte en el historial si el usuario se refiere a algo ya respondido antes (por ejemplo, te pide la fuente); en caso contrario, no dispones de información para responder e indícale que eso no está en los documentos ni notas de Belsué.`;
-
 /**
  * Detecta si la respuesta es un "no sé responder". El modelo no usa siempre la
  * misma frase exacta, así que reconocemos las formas habituales: "no encuentro
@@ -59,13 +42,18 @@ Si el contexto de esta consulta está vacío: puedes apoyarte en el historial si
 const NO_ANSWER_RE =
   /no\s+(?:encuentro|dispongo\s+de|tengo|hay|consta|aparece|figura|puedo\s+(?:encontrar|ofrecer|proporcionar|dar))\b[\s\S]{0,60}?(?:informaci|dato|document|nota|belsu)/i;
 
-/** Formatea los chunks recuperados como bloque de contexto para el prompt. */
-function buildContext(sources: Source[]): string {
+/**
+ * Formatea los chunks recuperados como bloque de contexto para el prompt.
+ * La etiqueta del segundo campo depende del ámbito ("Compañía" en seguros,
+ * "Área o responsable" en procedimientos): es la misma columna con otro sentido.
+ */
+function buildContext(sources: Source[], scope: string): string {
   if (sources.length === 0) return "";
+  const secondaryLabel = scopeConfig(scope).secondaryField.label;
   return sources
     .map(
       (s) =>
-        `--- Documento: ${s.documentName} | Compañía: ${
+        `--- Documento: ${s.documentName} | ${secondaryLabel}: ${
           s.company ?? "N/D"
         } | Categoría: ${s.category ?? "N/D"} ---\n${s.content}`,
     )
@@ -93,10 +81,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const { query, messages } = parsed;
+  const { query, messages, scope } = parsed;
   const supabase = supabaseServer();
 
-  // 1. Resolver la conversación (existente y propia, o nueva).
+  // 1. Resolver la conversación (existente, propia y del mismo ámbito, o nueva).
   let conversationId: string;
   try {
     if (parsed.conversationId) {
@@ -104,13 +92,14 @@ export async function POST(req: NextRequest) {
         supabase,
         parsed.conversationId,
         userId,
+        scope,
       );
       if (!owns) {
         return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
       }
       conversationId = parsed.conversationId;
     } else {
-      conversationId = await createConversation(supabase, userId);
+      conversationId = await createConversation(supabase, userId, scope);
     }
   } catch (err) {
     console.error("[chat] Error con la conversación:", err);
@@ -127,16 +116,15 @@ export async function POST(req: NextRequest) {
     console.error("[chat] Error al guardar el mensaje del usuario:", err);
   }
 
-  // 3. Recuperar chunks y construir el system prompt.
+  // 3. Recuperar chunks del ámbito y construir su system prompt.
   let sources: Source[] = [];
   try {
-    sources = await retrieveRelevantChunks(query, 8);
+    sources = await retrieveRelevantChunks(query, 8, scope);
   } catch (err) {
     console.error("[chat] Error al recuperar chunks:", err);
   }
 
-  const context = buildContext(sources);
-  const systemPrompt = SYSTEM_TEMPLATE.replace("{context}", context);
+  const systemPrompt = buildSystemPrompt(scope, buildContext(sources, scope));
 
   const chatMessages = [
     { role: "system" as const, content: systemPrompt },
@@ -203,9 +191,12 @@ export async function POST(req: NextRequest) {
           answer.trim().length > 0 &&
           (sources.length === 0 || NO_ANSWER_RE.test(answer));
         if (noSupo) {
+          const scopeTitle = scopeConfig(scope).title;
           await sendNotification(
-            "⚠️ El Formador no supo responder una consulta",
-            `<p>El asistente no encontró respuesta a esta consulta de un asesor:</p>
+            `⚠️ ${scopeTitle} no supo responder una consulta`,
+            `<p>El asistente (pestaña <b>${escapeHtml(
+              scopeTitle,
+            )}</b>) no encontró respuesta a esta consulta de un asesor:</p>
              <blockquote style="border-left:3px solid #8a0c3c;padding-left:12px;color:#333">${escapeHtml(
                query,
              )}</blockquote>

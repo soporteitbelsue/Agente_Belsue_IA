@@ -1,4 +1,5 @@
 import type { DefaultSession } from "next-auth";
+import type { AgentScope } from "@/lib/scopes";
 
 export type FileType = "pdf" | "docx" | "txt" | "nota";
 
@@ -64,6 +65,8 @@ export interface Document {
   company: string | null;
   /** Texto original de la nota; null en documentos con archivo. */
   content: string | null;
+  /** Pestaña del asistente a la que pertenece. */
+  scope: AgentScope;
   created_at: string;
   updated_at: string;
 }
@@ -115,6 +118,8 @@ export interface Conversation {
   id: string;
   user_id: string;
   title: string | null;
+  /** Pestaña del asistente en la que ocurre la conversación. */
+  scope: AgentScope;
   message_count: number;
   last_message_at: string;
   created_at: string;
@@ -162,4 +167,5 @@ export interface MatchChunkRow {
   document_name: string;
   document_category: string | null;
   document_company: string | null;
+  document_scope: string | null;
 }

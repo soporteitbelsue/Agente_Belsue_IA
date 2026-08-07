@@ -1,18 +1,13 @@
 "use client";
 
 import { useState } from "react";
-
-const CATEGORIES = [
-  { value: "general", label: "General" },
-  { value: "auto", label: "Auto" },
-  { value: "moto", label: "Moto" },
-  { value: "hogar", label: "Hogar" },
-  { value: "vida", label: "Vida" },
-  { value: "salud", label: "Salud" },
-  { value: "decesos", label: "Decesos" },
-  { value: "viaje", label: "Asistencia en viaje" },
-  { value: "rc", label: "Responsabilidad Civil" },
-];
+import {
+  DEFAULT_SCOPE,
+  SCOPE_LIST,
+  parseScope,
+  scopeConfig,
+  type AgentScope,
+} from "@/lib/scopes";
 
 type Status = "idle" | "saving" | "success" | "error";
 
@@ -22,6 +17,7 @@ export interface EditableNote {
   content: string | null;
   company: string | null;
   category: string | null;
+  scope?: AgentScope | null;
 }
 
 /**
@@ -29,30 +25,50 @@ export interface EditableNote {
  * - `embedded`: sin tarjeta propia (para usarlo dentro de un modal).
  * - `onSaved`: callback tras guardar con éxito (además del mensaje de éxito).
  * - `note`: si se pasa, el formulario entra en modo edición (PATCH).
+ * - `scope`: ámbito con el que se crea la nota. El desplegable de ámbito
+ *   permite además recolocar una nota guardada en la pestaña equivocada, y al
+ *   cambiarlo cambian las categorías y las etiquetas del formulario.
  */
 export default function NoteForm({
   embedded = false,
   onSaved,
   note,
+  scope = DEFAULT_SCOPE,
 }: {
   embedded?: boolean;
   onSaved?: () => void;
   note?: EditableNote;
+  scope?: AgentScope;
 } = {}) {
   const isEdit = !!note;
   const [name, setName] = useState(note?.name ?? "");
   const [content, setContent] = useState(note?.content ?? "");
   const [company, setCompany] = useState(note?.company ?? "");
+  const [noteScope, setNoteScope] = useState<AgentScope>(
+    note?.scope ? parseScope(note.scope) : scope,
+  );
   const [category, setCategory] = useState(note?.category ?? "general");
 
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  const config = scopeConfig(noteScope);
+
+  /** Al cambiar de ámbito, la categoría anterior puede no existir en el nuevo. */
+  function changeScope(next: AgentScope) {
+    setNoteScope(next);
+    const stillValid = scopeConfig(next).categories.some(
+      (c) => c.value === category,
+    );
+    if (!stillValid) setCategory("general");
+  }
 
   function resetForm() {
     setName("");
     setContent("");
     setCompany("");
     setCategory("general");
+    setNoteScope(scope);
     setStatus("idle");
     setError(null);
   }
@@ -82,6 +98,7 @@ export default function NoteForm({
             content: content.trim(),
             company: company.trim() || (isEdit ? null : undefined),
             category,
+            scope: noteScope,
           }),
         },
       );
@@ -147,14 +164,31 @@ export default function NoteForm({
     <form onSubmit={handleSubmit} className={formClass}>
       <div>
         <h2 className="text-lg font-semibold text-gray-800">
-          {isEdit ? "Editar nota" : "Añadir conocimiento (nota)"}
+          {isEdit ? "Editar nota" : config.note.heading}
         </h2>
-        <p className="text-sm text-gray-500">
-          Escribe una regla o recomendación (p. ej. &ldquo;Para cotizar auto con
-          conductor novel, mejor en tal compañía&rdquo;). El agente la usará como
-          una fuente más, sin necesidad de subir un documento.
-        </p>
+        <p className="text-sm text-gray-500">{config.note.help}</p>
       </div>
+
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium text-gray-600">
+          Pestaña del asistente <span className="text-belsue">*</span>
+        </span>
+        <select
+          value={noteScope}
+          onChange={(e) => changeScope(e.target.value as AgentScope)}
+          disabled={busy}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+        >
+          {SCOPE_LIST.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.title}
+            </option>
+          ))}
+        </select>
+        <span className="mt-1 block text-xs text-gray-400">
+          La nota solo se usará para responder en esta pestaña.
+        </span>
+      </label>
 
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-gray-600">
@@ -165,7 +199,7 @@ export default function NoteForm({
           onChange={(e) => setName(e.target.value)}
           required
           disabled={busy}
-          placeholder="Ej: Cotización auto conductor novel"
+          placeholder={config.note.titlePlaceholder}
           className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
         />
       </label>
@@ -180,7 +214,7 @@ export default function NoteForm({
           required
           rows={5}
           disabled={busy}
-          placeholder="Escribe aquí la información, regla o recomendación…"
+          placeholder={config.note.contentPlaceholder}
           className="w-full resize-y rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
         />
       </label>
@@ -188,12 +222,12 @@ export default function NoteForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm">
           <span className="mb-1 block font-medium text-gray-600">
-            Compañía aseguradora
+            {config.secondaryField.label}
           </span>
           <input
             value={company}
             onChange={(e) => setCompany(e.target.value)}
-            placeholder="Ej: Mapfre, Allianz, AXA, Generali..."
+            placeholder={config.secondaryField.placeholder}
             disabled={busy}
             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
           />
@@ -209,7 +243,7 @@ export default function NoteForm({
             disabled={busy}
             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
           >
-            {CATEGORIES.map((c) => (
+            {config.categories.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import formadorImg from "@/imagenes/formador.png";
+import { DEFAULT_SCOPE, SCOPE_LIST } from "@/lib/scopes";
 
 function initials(name: string): string {
   return name
@@ -23,6 +24,11 @@ export default function SiteHeader() {
   if (pathname === "/login") return null;
 
   const user = session?.user;
+
+  // Pestaña activa: documentos y conocimiento la arrastran para mostrar el
+  // material de la pestaña desde la que se entra.
+  const activeScope =
+    SCOPE_LIST.find((s) => pathname.startsWith(s.path))?.id ?? DEFAULT_SCOPE;
 
   return (
     <header className="bg-belsue text-white shadow-sm">
@@ -43,23 +49,35 @@ export default function SiteHeader() {
 
         {user ? (
           <div className="flex items-center gap-3">
+            {/* Pestañas del asistente: cada una con su propio conocimiento. */}
+            <nav className="flex items-center gap-1 rounded-lg bg-white/10 p-1">
+              {SCOPE_LIST.map((s) => {
+                const active = pathname.startsWith(s.path);
+                return (
+                  <Link
+                    key={s.id}
+                    href={s.path}
+                    aria-current={active ? "page" : undefined}
+                    title={s.description}
+                    className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
+                      active
+                        ? "bg-white text-belsue shadow-sm"
+                        : "text-white/90 hover:bg-white/15 hover:text-white"
+                    }`}
+                  >
+                    {s.navLabel}
+                  </Link>
+                );
+              })}
+            </nav>
             <Link
-              href="/chat"
-              className="inline-flex items-center gap-1 rounded-md bg-white/15 px-2.5 py-1.5 text-sm font-medium text-white transition hover:bg-white/25"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-              </svg>
-              Chat
-            </Link>
-            <Link
-              href="/documentos"
+              href={`/documentos?scope=${activeScope}`}
               className="hidden text-sm text-white/90 hover:text-white sm:inline"
             >
               Documentos
             </Link>
             <Link
-              href="/conocimiento"
+              href={`/conocimiento?scope=${activeScope}`}
               className="hidden text-sm text-white/90 hover:text-white sm:inline"
             >
               Conocimiento

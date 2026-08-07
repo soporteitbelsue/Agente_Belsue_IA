@@ -4,9 +4,11 @@ import type { NextRequest } from "next/server";
 
 /**
  * Acceso unificado por rol (sesión NextAuth):
- *  - /        → según rol: admin → /admin, asesor → /chat; sin sesión → /login
- *  - /chat    → cualquier usuario autenticado
- *  - /admin   → solo usuarios con rol 'admin'
+ *  - /                 → según rol: admin → /admin, asesor → /chat;
+ *                        sin sesión → /login
+ *  - /chat             → El Formador (cualquier usuario autenticado)
+ *  - /procedimientos   → Procedimientos internos (cualquier autenticado)
+ *  - /admin            → solo usuarios con rol 'admin'
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -32,9 +34,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // --- /chat, /conocimiento y /documentos: requieren sesión (cualquier rol) ---
+  // --- Resto de páginas del asistente: requieren sesión (cualquier rol) ---
   if (
     pathname.startsWith("/chat") ||
+    pathname.startsWith("/procedimientos") ||
     pathname.startsWith("/conocimiento") ||
     pathname.startsWith("/documentos")
   ) {
@@ -53,6 +56,7 @@ export const config = {
   matcher: [
     "/",
     "/chat/:path*",
+    "/procedimientos/:path*",
     "/admin/:path*",
     "/conocimiento/:path*",
     "/documentos/:path*",
