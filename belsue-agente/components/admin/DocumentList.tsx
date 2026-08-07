@@ -5,6 +5,12 @@ import NoteForm, { type EditableNote } from "@/components/admin/NoteForm";
 import DocumentMetaForm, {
   type EditableDocument,
 } from "@/components/admin/DocumentMetaForm";
+import {
+  CATEGORY_BADGE,
+  SCOPES,
+  SCOPE_LIST,
+  type AgentScope,
+} from "@/lib/scopes";
 import type { Document } from "@/types";
 
 type DocumentListItem = Pick<
@@ -14,35 +20,20 @@ type DocumentListItem = Pick<
   | "description"
   | "category"
   | "company"
+  | "scope"
   | "file_type"
   | "file_size"
   | "created_at"
 > & { chunk_count: number; reindexable: boolean };
 
-const CATEGORY_OPTIONS = [
-  { value: "", label: "Todas las categorías" },
-  { value: "general", label: "General" },
-  { value: "auto", label: "Auto" },
-  { value: "moto", label: "Moto" },
-  { value: "hogar", label: "Hogar" },
-  { value: "vida", label: "Vida" },
-  { value: "salud", label: "Salud" },
-  { value: "decesos", label: "Decesos" },
-  { value: "viaje", label: "Asistencia en viaje" },
-  { value: "rc", label: "Responsabilidad Civil" },
-];
-
-const CATEGORY_BADGE: Record<string, string> = {
-  auto: "bg-blue-100 text-blue-700",
-  moto: "bg-orange-100 text-orange-700",
-  hogar: "bg-green-100 text-green-700",
-  vida: "bg-purple-100 text-purple-700",
-  salud: "bg-pink-100 text-pink-700",
-  decesos: "bg-gray-200 text-gray-700",
-  viaje: "bg-teal-100 text-teal-700",
-  rc: "bg-indigo-100 text-indigo-700",
-  general: "bg-belsue/10 text-belsue",
-};
+/**
+ * Categorías de todos los portales (el admin ve el material de ambos). Se
+ * agrupan por portal para que se entienda a cuál pertenece cada una.
+ */
+const CATEGORY_GROUPS = SCOPE_LIST.map((s) => ({
+  label: s.title,
+  options: s.categories,
+}));
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -50,19 +41,30 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// Etiqueta legible para mostrar en el badge (las que difieren del valor).
-const CATEGORY_LABEL: Record<string, string> = {
-  viaje: "Viaje",
-  rc: "RC",
-};
+// Etiqueta legible de cada categoría, de todos los portales.
+const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
+  SCOPE_LIST.flatMap((s) => s.categories.map((c) => [c.value, c.label])),
+);
 
 function CategoryBadge({ category }: { category: string | null }) {
   if (!category) return <span className="text-gray-400">—</span>;
   const cls = CATEGORY_BADGE[category] ?? "bg-gray-100 text-gray-600";
   const label = CATEGORY_LABEL[category] ?? category;
   return (
-    <span className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
+    <span className={`whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
       {label}
+    </span>
+  );
+}
+
+function ScopeBadge({ scope }: { scope: AgentScope }) {
+  const cls =
+    scope === "procedimientos"
+      ? "bg-amber-100 text-amber-800"
+      : "bg-belsue/10 text-belsue";
+  return (
+    <span className={`whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {SCOPES[scope].title}
     </span>
   );
 }
@@ -93,6 +95,7 @@ export default function DocumentList() {
   const [error, setError] = useState<string | null>(null);
 
   const [category, setCategory] = useState("");
+  const [scopeFilter, setScopeFilter] = useState("");
   const [companyInput, setCompanyInput] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
 
@@ -135,6 +138,7 @@ export default function DocumentList() {
       try {
         const params = new URLSearchParams();
         if (category) params.set("category", category);
+        if (scopeFilter) params.set("scope", scopeFilter);
         if (companyFilter) params.set("company", companyFilter);
         const qs = params.toString();
         const res = await fetch(`/api/documents${qs ? `?${qs}` : ""}`);
@@ -147,7 +151,7 @@ export default function DocumentList() {
         setLoading(false);
       }
     },
-    [category, companyFilter],
+    [category, scopeFilter, companyFilter],
   );
 
   const loadRef = useRef(load);
@@ -197,14 +201,31 @@ export default function DocumentList() {
         </h2>
         <div className="flex flex-col gap-2 sm:flex-row">
           <select
+            value={scopeFilter}
+            onChange={(e) => setScopeFilter(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-belsue focus:outline-none"
+          >
+            <option value="">Los dos portales</option>
+            {SCOPE_LIST.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
+          </select>
+          <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-belsue focus:outline-none"
           >
-            {CATEGORY_OPTIONS.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
+            <option value="">Todas las categorías</option>
+            {CATEGORY_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.options.map((c) => (
+                  <option key={`${g.label}-${c.value}`} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <input
@@ -248,7 +269,8 @@ export default function DocumentList() {
             <thead className="border-b border-gray-200 text-gray-500">
               <tr>
                 <th className="py-2 pr-4 font-medium">Nombre</th>
-                <th className="py-2 pr-4 font-medium">Compañía</th>
+                <th className="py-2 pr-4 font-medium">Portal</th>
+                <th className="py-2 pr-4 font-medium">Compañía / Área</th>
                 <th className="py-2 pr-4 font-medium">Categoría</th>
                 <th className="py-2 pr-4 font-medium">Tipo</th>
                 <th className="py-2 pr-4 font-medium">Tamaño</th>
@@ -262,6 +284,9 @@ export default function DocumentList() {
                 <tr key={doc.id} className="border-b border-gray-100">
                   <td className="py-2 pr-4 font-medium text-gray-700">
                     {doc.name}
+                  </td>
+                  <td className="py-2 pr-4">
+                    <ScopeBadge scope={doc.scope} />
                   </td>
                   <td className="py-2 pr-4 text-gray-500">
                     {doc.company ?? "—"}
@@ -300,6 +325,7 @@ export default function DocumentList() {
                               description: doc.description,
                               company: doc.company,
                               category: doc.category,
+                              scope: doc.scope,
                             })
                           }
                           className="text-sm font-medium text-belsue hover:underline"
@@ -336,7 +362,13 @@ export default function DocumentList() {
               </div>
               <dl className="space-y-1 text-gray-500">
                 <div className="flex justify-between">
-                  <dt>Compañía</dt>
+                  <dt>Portal</dt>
+                  <dd>
+                    <ScopeBadge scope={doc.scope} />
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>Compañía / Área</dt>
                   <dd>{doc.company ?? "—"}</dd>
                 </div>
                 <div className="flex justify-between">
@@ -380,6 +412,7 @@ export default function DocumentList() {
                         description: doc.description,
                         company: doc.company,
                         category: doc.category,
+                        scope: doc.scope,
                       })
                     }
                     className="flex-1 rounded-md border border-belsue/40 py-1.5 text-sm font-medium text-belsue hover:bg-belsue/5"

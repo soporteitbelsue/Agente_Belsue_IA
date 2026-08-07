@@ -4,8 +4,7 @@ import type { NextRequest } from "next/server";
 
 /**
  * Acceso unificado por rol (sesión NextAuth):
- *  - /                 → según rol: admin → /admin, asesor → /chat;
- *                        sin sesión → /login
+ *  - /                 → selector de portales; sin sesión → /login
  *  - /chat             → El Formador (cualquier usuario autenticado)
  *  - /procedimientos   → Procedimientos internos (cualquier autenticado)
  *  - /admin            → solo usuarios con rol 'admin'
@@ -14,11 +13,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = await getToken({ req: request });
 
-  // --- raíz: deriva según el estado de sesión y el rol ---
+  // --- raíz: el selector de portales, solo con sesión ---
   if (pathname === "/") {
     if (!token) return NextResponse.redirect(new URL("/login", request.url));
-    const dest = token.role === "admin" ? "/admin" : "/chat";
-    return NextResponse.redirect(new URL(dest, request.url));
+    return NextResponse.next();
   }
 
   // --- /admin: requiere sesión y rol admin ---
@@ -29,7 +27,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
     if (token.role !== "admin") {
-      return NextResponse.redirect(new URL("/chat", request.url));
+      return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }

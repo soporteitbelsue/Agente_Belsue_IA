@@ -2,12 +2,13 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, getSession } from "next-auth/react";
+import { signIn } from "next-auth/react";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Si viene un callbackUrl explícito lo respetamos; si no, derivamos por rol.
+  // Si viene un callbackUrl explícito lo respetamos; si no, al selector de
+  // portales.
   const callbackUrl = searchParams.get("callbackUrl");
 
   const [email, setEmail] = useState("");
@@ -34,13 +35,9 @@ function LoginForm() {
         return;
       }
 
-      // Derivar destino: callbackUrl explícito o según el rol del usuario.
-      let dest = callbackUrl;
-      if (!dest) {
-        const session = await getSession();
-        dest = session?.user?.role === "admin" ? "/admin" : "/chat";
-      }
-      router.push(dest);
+      // Todos entran por el selector de portales, salvo que vinieran de una
+      // página concreta (callbackUrl).
+      router.push(callbackUrl ?? "/");
       router.refresh();
     } catch {
       setError("No se ha podido iniciar sesión. Inténtalo de nuevo.");

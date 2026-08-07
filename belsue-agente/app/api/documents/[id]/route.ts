@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
 import { removeFile, downloadFile } from "@/lib/storage";
 import { processAndStoreBuffer } from "@/lib/embeddings";
+import { AGENT_SCOPES } from "@/lib/scopes";
 
 export const runtime = "nodejs";
 // Editar metadatos reindexa el documento (la cabecera va fusionada con el
@@ -21,6 +22,7 @@ const updateSchema = z
     description: z.string().trim().nullable().optional(),
     company: z.string().trim().nullable().optional(),
     category: z.string().trim().optional(),
+    scope: z.enum(AGENT_SCOPES).optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, {
     message: "No hay cambios que guardar.",
@@ -28,8 +30,8 @@ const updateSchema = z
 
 /**
  * PATCH /api/documents/{id} — edita los metadatos de un documento (nombre,
- * descripción, compañía, categoría) y regenera su fragmento de cabecera para
- * que el cambio se refleje en la búsqueda. Solo admin.
+ * descripción, compañía, categoría, portal) y regenera su fragmento de
+ * cabecera para que el cambio se refleje en la búsqueda. Solo admin.
  */
 export async function PATCH(
   req: NextRequest,
@@ -60,6 +62,8 @@ export async function PATCH(
   if (body.description !== undefined) fields.description = body.description || null;
   if (body.company !== undefined) fields.company = body.company || null;
   if (body.category !== undefined) fields.category = body.category;
+  // Permite mover un documento al otro portal.
+  if (body.scope !== undefined) fields.scope = body.scope;
 
   const { data, error } = await supabase
     .from("documents")

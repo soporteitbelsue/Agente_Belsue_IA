@@ -1,11 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import formadorImg from "@/imagenes/formador.png";
-import { DEFAULT_SCOPE, SCOPE_LIST } from "@/lib/scopes";
+import { SCOPE_LIST, parseScope, type ScopeConfig } from "@/lib/scopes";
 
 function initials(name: string): string {
   return name
@@ -16,8 +17,12 @@ function initials(name: string): string {
     .join("");
 }
 
-export default function SiteHeader() {
+/** Páginas que pertenecen a un portal pero reciben el ámbito por query param. */
+const SCOPED_PAGES = ["/documentos", "/conocimiento"];
+
+function HeaderInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
 
   // La página de login no lleva header.
@@ -25,64 +30,65 @@ export default function SiteHeader() {
 
   const user = session?.user;
 
-  // Pestaña activa: documentos y conocimiento la arrastran para mostrar el
-  // material de la pestaña desde la que se entra.
-  const activeScope =
-    SCOPE_LIST.find((s) => pathname.startsWith(s.path))?.id ?? DEFAULT_SCOPE;
+  // Portal activo: por la ruta (el chat de cada portal) o por el query param
+  // (documentos y conocimiento, que son las mismas páginas para ambos).
+  const portal: ScopeConfig | null =
+    SCOPE_LIST.find((s) => pathname.startsWith(s.path)) ??
+    (SCOPED_PAGES.some((p) => pathname.startsWith(p))
+      ? SCOPE_LIST.find((s) => s.id === parseScope(searchParams.get("scope")))!
+      : null);
+
+  const inAdmin = pathname.startsWith("/admin");
 
   return (
     <header className="bg-belsue text-white shadow-sm">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/chat" className="flex items-center gap-2.5">
+      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3">
+        {/* Identidad: dentro de un portal, el logo lleva a su chat. */}
+        <Link
+          href={portal?.path ?? "/"}
+          className="flex min-w-0 items-center gap-2.5"
+        >
           <span className="block h-11 w-11 shrink-0 overflow-hidden rounded-full bg-white shadow-sm ring-2 ring-white/50">
             <Image
               src={formadorImg}
-              alt="El Formador"
+              alt=""
               className="h-full w-full scale-[1.7] object-cover object-[center_26%]"
               priority
             />
           </span>
-          <span className="text-lg font-semibold tracking-tight">
-            El Formador
+          <span className="min-w-0">
+            <span className="block truncate text-lg font-semibold leading-tight tracking-tight">
+              {portal?.title ?? (inAdmin ? "Administración" : "Asistente Belsué")}
+            </span>
+            {portal && (
+              <span className="hidden text-xs text-white/70 sm:block">
+                Asistente Belsué
+              </span>
+            )}
           </span>
         </Link>
 
         {user ? (
           <div className="flex items-center gap-3">
-            {/* Pestañas del asistente: cada una con su propio conocimiento. */}
-            <nav className="flex items-center gap-1 rounded-lg bg-white/10 p-1">
-              {SCOPE_LIST.map((s) => {
-                const active = pathname.startsWith(s.path);
-                return (
-                  <Link
-                    key={s.id}
-                    href={s.path}
-                    aria-current={active ? "page" : undefined}
-                    title={s.description}
-                    className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
-                      active
-                        ? "bg-white text-belsue shadow-sm"
-                        : "text-white/90 hover:bg-white/15 hover:text-white"
-                    }`}
-                  >
-                    {s.navLabel}
-                  </Link>
-                );
-              })}
-            </nav>
-            <Link
-              href={`/documentos?scope=${activeScope}`}
-              className="hidden text-sm text-white/90 hover:text-white sm:inline"
-            >
-              Documentos
-            </Link>
-            <Link
-              href={`/conocimiento?scope=${activeScope}`}
-              className="hidden text-sm text-white/90 hover:text-white sm:inline"
-            >
-              Conocimiento
-            </Link>
-            {user.role === "admin" && (
+            {/* Navegación interna del portal en el que estás. */}
+            {portal && (
+              <>
+                <Link
+                  href={`/documentos?scope=${portal.id}`}
+                  className="hidden text-sm text-white/90 hover:text-white sm:inline"
+                >
+                  Documentos
+                </Link>
+                <Link
+                  href={`/conocimiento?scope=${portal.id}`}
+                  className="hidden text-sm text-white/90 hover:text-white sm:inline"
+                >
+                  Conocimiento
+                </Link>
+              </>
+            )}
+
+            {user.role === "admin" && !inAdmin && (
               <Link
                 href="/admin"
                 className="hidden text-sm text-white/90 hover:text-white sm:inline"
@@ -90,11 +96,26 @@ export default function SiteHeader() {
                 Administración
               </Link>
             )}
+
+            {/* Volver al selector de portales. */}
+            {pathname !== "/" && (
+              <Link
+                href="/"
+                title="Cambiar de portal"
+                className="inline-flex items-center gap-1.5 rounded-md bg-white/15 px-2.5 py-1.5 text-sm font-medium text-white transition hover:bg-white/25"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                </svg>
+                <span className="hidden sm:inline">Portales</span>
+              </Link>
+            )}
+
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold">
                 {initials(user.name ?? "?")}
               </span>
-              <span className="hidden text-sm font-medium sm:inline">
+              <span className="hidden text-sm font-medium lg:inline">
                 {user.name}
               </span>
             </div>
@@ -116,11 +137,21 @@ export default function SiteHeader() {
                   d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
                 />
               </svg>
-              <span className="hidden sm:inline">Cerrar sesión</span>
+              <span className="hidden sm:inline">Salir</span>
             </button>
           </div>
         ) : null}
       </div>
     </header>
+  );
+}
+
+export default function SiteHeader() {
+  // useSearchParams necesita un límite de Suspense para no bloquear el
+  // renderizado estático de las páginas que cuelgan de este layout.
+  return (
+    <Suspense fallback={null}>
+      <HeaderInner />
+    </Suspense>
   );
 }

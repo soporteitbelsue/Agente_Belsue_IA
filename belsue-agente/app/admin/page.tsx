@@ -8,17 +8,18 @@ export default function AdminPage() {
     <div className="mx-auto w-full max-w-5xl space-y-8 overflow-y-auto px-4 py-6">
       <div>
         <Link
-          href="/chat"
+          href="/"
           className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-belsue hover:underline"
         >
-          ← Volver al chat
+          ← Volver a los portales
         </Link>
         <h1 className="text-2xl font-bold text-gray-800">
           Administración de documentos
         </h1>
         <p className="text-sm text-gray-500">
-          Sube pólizas y documentación, o añade notas de conocimiento. Todo se
-          indexa automáticamente para el agente.
+          Sube pólizas y documentación, o añade notas de conocimiento. Aquí ves
+          el material de los dos portales: cada documento indica a cuál
+          pertenece, y es el portal quien decide dónde se usa.
         </p>
       </div>
 

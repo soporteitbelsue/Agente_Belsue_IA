@@ -1,18 +1,13 @@
 "use client";
 
 import { useState } from "react";
-
-const CATEGORIES = [
-  { value: "general", label: "General" },
-  { value: "auto", label: "Auto" },
-  { value: "moto", label: "Moto" },
-  { value: "hogar", label: "Hogar" },
-  { value: "vida", label: "Vida" },
-  { value: "salud", label: "Salud" },
-  { value: "decesos", label: "Decesos" },
-  { value: "viaje", label: "Asistencia en viaje" },
-  { value: "rc", label: "Responsabilidad Civil" },
-];
+import {
+  DEFAULT_SCOPE,
+  SCOPE_LIST,
+  parseScope,
+  scopeConfig,
+  type AgentScope,
+} from "@/lib/scopes";
 
 export interface EditableDocument {
   id: string;
@@ -20,6 +15,7 @@ export interface EditableDocument {
   description: string | null;
   company: string | null;
   category: string | null;
+  scope?: AgentScope | null;
 }
 
 type Status = "idle" | "saving" | "success" | "error";
@@ -38,10 +34,24 @@ export default function DocumentMetaForm({
   const [name, setName] = useState(doc.name);
   const [description, setDescription] = useState(doc.description ?? "");
   const [company, setCompany] = useState(doc.company ?? "");
+  const [scope, setScope] = useState<AgentScope>(
+    doc.scope ? parseScope(doc.scope) : DEFAULT_SCOPE,
+  );
   const [category, setCategory] = useState(doc.category ?? "general");
 
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  const config = scopeConfig(scope);
+
+  /** Al cambiar de portal, la categoría anterior puede no existir en el nuevo. */
+  function changeScope(next: AgentScope) {
+    setScope(next);
+    const stillValid = scopeConfig(next).categories.some(
+      (c) => c.value === category,
+    );
+    if (!stillValid) setCategory("general");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +70,7 @@ export default function DocumentMetaForm({
           description: description.trim() || null,
           company: company.trim() || null,
           category,
+          scope,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -119,15 +130,34 @@ export default function DocumentMetaForm({
         />
       </label>
 
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium text-gray-600">Portal</span>
+        <select
+          value={scope}
+          onChange={(e) => changeScope(e.target.value as AgentScope)}
+          disabled={busy}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+        >
+          {SCOPE_LIST.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.title}
+            </option>
+          ))}
+        </select>
+        <span className="mt-1 block text-xs text-gray-400">
+          El documento solo se usa para responder en este portal.
+        </span>
+      </label>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm">
           <span className="mb-1 block font-medium text-gray-600">
-            Compañía aseguradora
+            {config.secondaryField.label}
           </span>
           <input
             value={company}
             onChange={(e) => setCompany(e.target.value)}
-            placeholder="Ej: Mapfre, Allianz…"
+            placeholder={config.secondaryField.placeholder}
             disabled={busy}
             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
           />
@@ -141,7 +171,7 @@ export default function DocumentMetaForm({
             disabled={busy}
             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
           >
-            {CATEGORIES.map((c) => (
+            {config.categories.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
