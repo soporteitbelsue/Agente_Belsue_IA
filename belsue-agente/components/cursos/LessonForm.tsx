@@ -6,7 +6,9 @@ import { supabaseBrowser } from "@/lib/supabase";
 // Debe coincidir con DOCUMENTS_BUCKET de lib/storage.ts.
 const DOCUMENTS_BUCKET = "documentos";
 
-const ACCEPTED_EXT = [".pptx", ".pdf", ".docx", ".txt"];
+// El PDF va primero a propósito: es el único que se lee dentro de la página.
+// Los demás formatos se indexan igual para el agente, pero hay que descargarlos.
+const ACCEPTED_EXT = [".pdf", ".pptx", ".docx", ".txt"];
 const MAX_SIZE = 20 * 1024 * 1024;
 const MAX_SIZE_PPTX = 50 * 1024 * 1024;
 
@@ -177,7 +179,7 @@ export default function LessonForm({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pptx,.pdf,.docx,.txt"
+          accept=".pdf,.pptx,.docx,.txt"
           className="hidden"
           onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
           disabled={busy}
@@ -186,10 +188,20 @@ export default function LessonForm({
           <div className="text-sm">
             <p className="font-medium text-gray-800">{file.name}</p>
             <p className="text-gray-400">{formatBytes(file.size)}</p>
+            {getExt(file.name) !== ".pdf" && (
+              <p className="mt-1 text-xs text-amber-600">
+                Este formato hay que descargarlo para verlo. Si lo exportas a
+                PDF, la lección se lee dentro de la propia página.
+              </p>
+            )}
           </div>
         ) : (
           <p className="text-sm text-gray-500">
-            Arrastra el PowerPoint (o PDF) aquí, o haz clic para elegirlo
+            Arrastra el PDF aquí, o haz clic para elegirlo
+            <span className="mt-1 block text-xs text-gray-400">
+              También admite PPTX, DOCX y TXT, pero solo el PDF se lee dentro de
+              la página (desde PowerPoint: Archivo → Exportar → PDF).
+            </span>
           </p>
         )}
       </div>

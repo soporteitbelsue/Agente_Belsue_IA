@@ -14,6 +14,9 @@ const TYPE_LABEL: Record<string, string> = {
   nota: "Nota",
 };
 
+/** Tipos que se pueden leer sin salir de la página (ver /api/documents/[id]/view). */
+const VIEWABLE = new Set(["pdf", "txt"]);
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -28,6 +31,8 @@ export default function CursoPage({ params }: { params: { id: string } }) {
   const [adding, setAdding] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Lección abierta en el visor y su enlace firmado.
+  const [viewer, setViewer] = useState<{ id: string; url: string } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -69,18 +74,42 @@ export default function CursoPage({ params }: { params: { id: string } }) {
     }
   }
 
-  /** Abre el material. Al abrirlo se da la lección por vista. */
+  /**
+   * Abre la lección en el visor incrustado (PDF y texto). Al abrirla se da por
+   * vista, que es el gesto natural: si la estás leyendo, la has visto.
+   */
   async function openMaterial(lesson: Lesson) {
+    if (viewer?.id === lesson.id) {
+      setViewer(null); // segundo clic: cerrar
+      return;
+    }
+    setOpeningId(lesson.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/documents/${lesson.document_id}/view`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "No se pudo abrir.");
+      setViewer({ id: lesson.id, url: data.url as string });
+      if (!lesson.viewed) await toggleViewed(lesson);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo abrir.");
+    } finally {
+      setOpeningId(null);
+    }
+  }
+
+  /** Descarga el material (para los formatos que el navegador no muestra). */
+  async function downloadMaterial(lesson: Lesson) {
     setOpeningId(lesson.id);
     setError(null);
     try {
       const res = await fetch(`/api/documents/${lesson.document_id}/download`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "No se pudo abrir.");
+      if (!res.ok) throw new Error(data.error ?? "No se pudo descargar.");
       window.open(data.url, "_blank");
       if (!lesson.viewed) await toggleViewed(lesson);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo abrir.");
+      setError(err instanceof Error ? err.message : "No se pudo descargar.");
     } finally {
       setOpeningId(null);
     }
@@ -197,18 +226,39 @@ export default function CursoPage({ params }: { params: { id: string } }) {
                   {TYPE_LABEL[lesson.file_type] ?? lesson.file_type}
                 </span>
                 <span>{formatBytes(lesson.file_size)}</span>
-                {lesson.downloadable ? (
-                  <button
-                    onClick={() => openMaterial(lesson)}
-                    disabled={openingId === lesson.id}
-                    className="font-medium text-belsue hover:underline disabled:opacity-50"
-                  >
-                    {openingId === lesson.id ? "Abriendo…" : "Abrir material"}
-                  </button>
-                ) : (
+                {!lesson.downloadable ? (
                   <span title="Sin archivo original disponible">
                     Material no disponible
                   </span>
+                ) : VIEWABLE.has(lesson.file_type) ? (
+                  <>
+                    <button
+                      onClick={() => openMaterial(lesson)}
+                      disabled={openingId === lesson.id}
+                      className="font-medium text-belsue hover:underline disabled:opacity-50"
+                    >
+                      {openingId === lesson.id
+                        ? "Abriendo…"
+                        : viewer?.id === lesson.id
+                          ? "Cerrar lección"
+                          : "Ver lección"}
+                    </button>
+                    <button
+                      onClick={() => downloadMaterial(lesson)}
+                      className="text-gray-400 hover:text-belsue"
+                    >
+                      Descargar
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => downloadMaterial(lesson)}
+                    disabled={openingId === lesson.id}
+                    title="Este formato no se puede ver dentro de la página. Súbelo en PDF para leerlo aquí."
+                    className="font-medium text-belsue hover:underline disabled:opacity-50"
+                  >
+                    {openingId === lesson.id ? "Abriendo…" : "Descargar material"}
+                  </button>
                 )}
                 <button
                   onClick={() => removeLesson(lesson)}
@@ -218,6 +268,17 @@ export default function CursoPage({ params }: { params: { id: string } }) {
                   Quitar
                 </button>
               </div>
+
+              {/* Visor incrustado: la lección se lee sin salir de la página. */}
+              {viewer?.id === lesson.id && (
+                <div className="mt-3 overflow-hidden rounded-md border border-gray-200">
+                  <iframe
+                    src={viewer.url}
+                    title={lesson.title}
+                    className="h-[70vh] w-full bg-gray-50"
+                  />
+                </div>
+              )}
             </div>
           </li>
         ))}

@@ -42,6 +42,29 @@ export async function createSignedDownload(
   return data.signedUrl;
 }
 
+/**
+ * Crea una URL firmada para VER el archivo dentro de la página (sin la opción
+ * `download`, que fuerza la descarga con Content-Disposition: attachment).
+ *
+ * La caducidad es más larga que la de descarga porque el visor de PDF del
+ * navegador vuelve a pedir trozos del archivo según se pasan páginas: con un
+ * enlace corto, la lección se quedaba a medias al desplazarse.
+ */
+export async function createSignedView(
+  path: string,
+  expiresInSeconds = 3600,
+): Promise<string> {
+  const supabase = supabaseServer();
+  const { data, error } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .createSignedUrl(path, expiresInSeconds);
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "No se pudo generar el enlace.");
+  }
+  return data.signedUrl;
+}
+
 /** Descarga un archivo de Storage como Buffer (para indexarlo en el servidor). */
 export async function downloadFile(path: string): Promise<Buffer> {
   const supabase = supabaseServer();
