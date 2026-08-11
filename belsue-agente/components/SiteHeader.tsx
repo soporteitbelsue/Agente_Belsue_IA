@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import PortalLogo from "@/components/PortalLogo";
+import { useSources } from "@/components/chat/SourcesContext";
 import {
   DEFAULT_SCOPE,
   SCOPE_LIST,
@@ -53,6 +54,7 @@ function HeaderInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const sources = useSources();
 
   // La página de login no lleva header.
   if (pathname === "/login") return null;
@@ -131,6 +133,34 @@ function HeaderInner() {
                 </NavTab>
               )}
             </nav>
+
+            {/* Fuentes de la respuesta: solo mientras hay un chat delante. */}
+            {sources?.available && (
+              <button
+                onClick={() => sources.setOpen(!sources.open)}
+                aria-expanded={sources.open}
+                title="Ver de dónde sale la respuesta"
+                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
+                  sources.open
+                    ? "bg-white text-belsue shadow-sm"
+                    : "bg-white/15 text-white hover:bg-white/25"
+                }`}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                <span className="hidden sm:inline">Fuentes</span>
+                <span
+                  className={`rounded-full px-1.5 text-xs font-semibold ${
+                    sources.open
+                      ? "bg-belsue/10 text-belsue"
+                      : "bg-white/20 text-white"
+                  }`}
+                >
+                  {sources.count}
+                </span>
+              </button>
+            )}
 
             {/* Volver al selector de portales. */}
             {pathname !== "/" && (
