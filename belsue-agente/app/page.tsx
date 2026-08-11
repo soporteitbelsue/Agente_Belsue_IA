@@ -46,17 +46,21 @@ function PortalCard({
   title,
   description,
   highlights,
+  /** Posición en la fila: retrasa su entrada para que aparezcan en cascada. */
+  index,
 }: {
   href: string;
   icon: React.ReactNode;
   title: string;
   description: string;
   highlights: string[];
+  index: number;
 }) {
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:ring-belsue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-belsue"
+      style={{ animationDelay: `${index * 0.09}s` }}
+      className="animate-rise group flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:ring-belsue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-belsue"
     >
       {icon}
 
@@ -103,15 +107,16 @@ export default async function HomePage() {
       {/* Formas de fondo, muy tenues: dan color sin restar legibilidad. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-32 -top-40 h-[28rem] w-[28rem] rounded-full bg-belsue-100/40 blur-[2px]"
+        className="animate-drift pointer-events-none absolute -right-32 -top-40 h-[28rem] w-[28rem] rounded-full bg-belsue-100/40 blur-[2px]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -bottom-48 -left-40 h-[30rem] w-[30rem] rounded-full bg-belsue-100/25"
+        style={{ animationDelay: "-13s" }}
+        className="animate-drift pointer-events-none absolute -bottom-48 -left-40 h-[30rem] w-[30rem] rounded-full bg-belsue-100/25"
       />
 
       <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-12">
-        <div className="mb-10 text-center">
+        <div className="animate-rise mb-10 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
             {firstName ? `Hola, ${firstName}` : "Hola"}
           </h1>
@@ -124,9 +129,10 @@ export default async function HomePage() {
         <div
           className={`grid gap-5 sm:grid-cols-2 ${isAdmin ? "lg:grid-cols-3" : "lg:mx-auto lg:max-w-3xl"}`}
         >
-          {SCOPE_LIST.map((portal) => (
+          {SCOPE_LIST.map((portal, i) => (
             <PortalCard
               key={portal.id}
+              index={i + 1}
               href={portal.path}
               title={portal.title}
               description={portal.description}
@@ -142,6 +148,7 @@ export default async function HomePage() {
 
           {isAdmin && (
             <PortalCard
+              index={SCOPE_LIST.length + 1}
               href="/admin"
               title="Administración"
               description="Documentos de ambos portales, usuarios y métricas de uso."

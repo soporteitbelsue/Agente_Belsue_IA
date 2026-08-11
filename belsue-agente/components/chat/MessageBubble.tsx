@@ -1,5 +1,6 @@
 import type { ChatMessage } from "@/types";
 import Markdown from "./Markdown";
+import ThinkingDots from "./ThinkingDots";
 
 interface Props {
   message: ChatMessage;
@@ -46,10 +47,7 @@ export default function MessageBubble({
       <div className="max-w-[80%] space-y-2">
         <div className="rounded-2xl rounded-bl-sm bg-[#F5F5F5] px-4 py-2.5 text-gray-800">
           {isStreaming && message.content === "" ? (
-            <span className="flex items-center gap-1 text-sm text-gray-400">
-              escribiendo
-              <span className="streaming-cursor" aria-hidden />
-            </span>
+            <ThinkingDots />
           ) : (
             <>
               <Markdown content={message.content} />

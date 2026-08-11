@@ -70,3 +70,108 @@ button:disabled,
   background-color: var(--belsue);
   animation: belsue-blink 1s steps(1) infinite;
 }
+
+/* ============================================================
+   Animaciones
+   Casi todas se ejecutan UNA vez al aparecer el elemento: en una
+   herramienta que se usa a diario, lo que se mueve sin parar acaba
+   distrayendo. Las únicas en bucle son las que informan de que algo
+   está ocurriendo (los puntos de "pensando") o son de fondo y muy
+   lentas.
+   ============================================================ */
+
+/* Entrada: aparece subiendo un poco. */
+@keyframes belsue-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Entrada lateral, para las fuentes del panel derecho. */
+@keyframes belsue-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Cada punto de "está pensando" sube y baja con su propio retardo. */
+@keyframes belsue-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+/* Deriva del fondo: muy lenta y de recorrido corto, casi imperceptible. */
+@keyframes belsue-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-2rem, 1.5rem, 0) scale(1.06);
+  }
+}
+
+/* Confirmación: el tic aparece con un pequeño rebote. */
+@keyframes belsue-pop {
+  0% {
+    transform: scale(0.5);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-rise {
+  animation: belsue-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-slide-in {
+  animation: belsue-slide-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-drift {
+  animation: belsue-drift 26s ease-in-out infinite alternate;
+}
+
+.animate-pop {
+  animation: belsue-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.thinking-dot {
+  animation: belsue-dot 1.4s ease-in-out infinite;
+}
+
+/* Quien haya pedido en su sistema reducir el movimiento no ve ninguna:
+   los elementos aparecen ya en su posición final. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-slide-in,
+  .animate-drift,
+  .animate-pop,
+  .thinking-dot,
+  .streaming-cursor {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

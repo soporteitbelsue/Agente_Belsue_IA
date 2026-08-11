@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import UploadForm from "@/components/admin/UploadForm";
+import { TableSkeleton } from "@/components/Skeleton";
 import {
   CATEGORY_BADGE,
   categoryFilterOptions,
@@ -165,7 +166,7 @@ function DocumentosContent() {
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
-      {loading && <p className="text-sm text-gray-400">Cargando…</p>}
+      {loading && <TableSkeleton />}
 
       {!loading && filtered.length === 0 && (
         <div className="py-16 text-center text-sm text-gray-500">

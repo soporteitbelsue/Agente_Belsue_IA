@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ContributeKnowledge from "@/components/chat/ContributeKnowledge";
 import NoteForm, { type EditableNote } from "@/components/admin/NoteForm";
+import { CardsSkeleton } from "@/components/Skeleton";
 import {
   CATEGORY_BADGE,
   categoryFilterOptions,
@@ -121,7 +122,7 @@ function ConocimientoContent() {
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
-      {loading && <p className="text-sm text-gray-400">Cargando…</p>}
+      {loading && <CardsSkeleton />}
 
       {!loading && filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">

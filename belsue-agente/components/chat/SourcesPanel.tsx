@@ -71,8 +71,13 @@ export default function SourcesPanel({ sources, onClose }: Props) {
       <div className="flex-1 overflow-y-auto p-3">
         {groups.length > 0 ? (
           <div className="space-y-4">
-            {groups.map((group) => (
-              <div key={group.key}>
+            {groups.map((group, gi) => (
+              <div
+                key={group.key}
+                // Entran en cascada según llegan, en vez de aparecer de golpe.
+                className="animate-slide-in"
+                style={{ animationDelay: `${gi * 0.07}s` }}
+              >
                 {group.fragments.length > 1 && (
                   <p className="mb-1.5 px-0.5 text-xs font-medium text-gray-500">
                     {group.name}

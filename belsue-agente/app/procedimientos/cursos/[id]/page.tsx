@@ -192,7 +192,8 @@ export default function CursoPage({ params }: { params: { id: string } }) {
         {course.lessons.map((lesson, i) => (
           <li
             key={lesson.id}
-            className={`flex gap-3 rounded-lg border bg-white p-4 shadow-sm transition ${
+            style={{ animationDelay: `${i * 0.05}s` }}
+            className={`animate-rise flex gap-3 rounded-lg border bg-white p-4 shadow-sm transition ${
               lesson.viewed ? "border-green-200" : "border-gray-200"
             }`}
           >
@@ -206,7 +207,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
               }`}
             >
               {lesson.viewed ? (
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                <svg className="animate-pop h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               ) : (
