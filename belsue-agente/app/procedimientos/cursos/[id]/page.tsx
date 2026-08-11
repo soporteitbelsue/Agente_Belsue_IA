@@ -33,6 +33,11 @@ export default function CursoPage({ params }: { params: { id: string } }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Lección abierta en el visor y su enlace firmado.
   const [viewer, setViewer] = useState<{ id: string; url: string } | null>(null);
+  // Edición del título y la descripción del curso.
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [savingCourse, setSavingCourse] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -120,6 +125,68 @@ export default function CursoPage({ params }: { params: { id: string } }) {
     load();
   }
 
+  /**
+   * Sube o baja una lección dentro del curso. Reescribe la posición de todas
+   * las que no cuadren con su sitio en la lista: así se normalizan de paso los
+   * huecos que dejan las lecciones borradas.
+   */
+  async function moveLesson(index: number, direction: -1 | 1) {
+    if (!course) return;
+    const target = index + direction;
+    if (target < 0 || target >= course.lessons.length) return;
+
+    const reordered = [...course.lessons];
+    const moved = reordered[index]!;
+    reordered[index] = reordered[target]!;
+    reordered[target] = moved;
+
+    setCourse({ ...course, lessons: reordered }); // optimista
+    setViewer(null); // el visor abierto dejaría de corresponder a su fila
+
+    try {
+      await Promise.all(
+        reordered.map((lesson, i) =>
+          lesson.position === i
+            ? null
+            : fetch(`/api/lessons/${lesson.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ position: i }),
+              }),
+        ),
+      );
+    } catch {
+      /* si algo falla, la recarga deja el orden real */
+    }
+    load();
+  }
+
+  /** Guarda el título y la descripción del curso. */
+  async function saveCourse(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTitle.trim()) return;
+    setSavingCourse(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/courses/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "No se pudo guardar.");
+      setEditing(false);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar.");
+    } finally {
+      setSavingCourse(false);
+    }
+  }
+
   async function deleteCourse() {
     await fetch(`/api/courses/${params.id}`, { method: "DELETE" });
     router.push("/procedimientos/cursos");
@@ -156,9 +223,64 @@ export default function CursoPage({ params }: { params: { id: string } }) {
         >
           ← Volver a los cursos
         </Link>
-        <h1 className="text-2xl font-bold text-gray-800">{course.title}</h1>
-        {course.description && (
-          <p className="mt-1 text-sm text-gray-500">{course.description}</p>
+        {editing ? (
+          <form onSubmit={saveCourse} className="space-y-3">
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              required
+              autoFocus
+              disabled={savingCourse}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-lg font-semibold focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+            />
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={2}
+              disabled={savingCourse}
+              placeholder="Descripción del curso"
+              className="w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+            />
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={savingCourse || !editTitle.trim()}
+                className="rounded-lg bg-belsue px-4 py-1.5 text-sm font-medium text-white hover:bg-belsue-700 disabled:opacity-40"
+              >
+                {savingCourse ? "Guardando…" : "Guardar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">
+                {course.title}
+              </h1>
+              {course.description && (
+                <p className="mt-1 text-sm text-gray-500">
+                  {course.description}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                setEditTitle(course.title);
+                setEditDescription(course.description ?? "");
+                setEditing(true);
+              }}
+              className="shrink-0 text-sm font-medium text-belsue hover:underline"
+            >
+              Editar
+            </button>
+          </div>
         )}
 
         {total > 0 && (
@@ -261,13 +383,38 @@ export default function CursoPage({ params }: { params: { id: string } }) {
                     {openingId === lesson.id ? "Abriendo…" : "Descargar material"}
                   </button>
                 )}
-                <button
-                  onClick={() => removeLesson(lesson)}
-                  className="ml-auto text-gray-300 hover:text-red-500"
-                  title="Quitar del curso (el documento no se borra)"
-                >
-                  Quitar
-                </button>
+                <span className="ml-auto flex items-center gap-1.5">
+                  {/* Reordenar: el orden de las lecciones es el del curso. */}
+                  <button
+                    onClick={() => moveLesson(i, -1)}
+                    disabled={i === 0}
+                    title="Subir la lección"
+                    aria-label="Subir la lección"
+                    className="rounded p-0.5 text-gray-300 transition hover:bg-gray-100 hover:text-belsue disabled:invisible"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => moveLesson(i, 1)}
+                    disabled={i === course.lessons.length - 1}
+                    title="Bajar la lección"
+                    aria-label="Bajar la lección"
+                    className="rounded p-0.5 text-gray-300 transition hover:bg-gray-100 hover:text-belsue disabled:invisible"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => removeLesson(lesson)}
+                    className="text-gray-300 hover:text-red-500"
+                    title="Quitar del curso (el documento no se borra)"
+                  >
+                    Quitar
+                  </button>
+                </span>
               </div>
 
               {/* Visor incrustado: la lección se lee sin salir de la página. */}
