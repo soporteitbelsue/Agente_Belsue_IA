@@ -75,12 +75,18 @@ function HeaderInner() {
     <header className="bg-belsue text-white shadow-sm">
       {/* A todo el ancho, no centrada: el contenido de la aplicación (barra
           lateral, conversación y panel de fuentes) también ocupa toda la
-          pantalla, y una cabecera estrecha dejaba los lados vacíos. */}
-      <div className="flex w-full items-center gap-3 px-4 py-3 sm:px-6">
+          pantalla, y una cabecera estrecha dejaba los lados vacíos.
+
+          Rejilla de tres columnas en vez de márgenes automáticos: con estos
+          últimos el hueco sobrante se reparte entre logo y acciones, y las
+          pestañas quedaban escoradas al ser un bloque más ancho que el otro.
+          Con las columnas laterales iguales (1fr), el centro es el centro
+          real de la pantalla. */}
+      <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 sm:px-6">
         {/* Identidad: dentro de un portal, el logo lleva a su chat. */}
         <Link
           href={portal?.path ?? "/"}
-          className="flex min-w-0 items-center gap-2.5"
+          className="flex min-w-0 items-center gap-2.5 justify-self-start"
         >
           <PortalLogo
             scope={portal?.id ?? (inAdmin ? "admin" : DEFAULT_SCOPE)}
@@ -99,9 +105,8 @@ function HeaderInner() {
 
         {user ? (
           <>
-            {/* Navegación del portal, en pestañas: se ve dónde estás.
-                `mx-auto` la deja centrada entre el logo y las acciones. */}
-            <nav className="mx-auto hidden items-center gap-1 md:flex">
+            {/* Navegación del portal, en pestañas: se ve dónde estás. */}
+            <nav className="hidden items-center gap-1 justify-self-center md:flex">
               {portal && (
                 <>
                   <NavTab href={portal.path} active={pathname === portal.path}>
@@ -139,7 +144,7 @@ function HeaderInner() {
             </nav>
 
             {/* Acciones, pegadas al borde derecho. */}
-            <div className="ml-auto flex items-center gap-3">
+            <div className="col-start-3 flex items-center gap-3 justify-self-end">
             {/* Fuentes de la respuesta: solo mientras hay un chat delante. */}
             {sources?.available && (
               <button
