@@ -20,7 +20,7 @@ type DocumentListItem = Pick<
   | "description"
   | "category"
   | "company"
-  | "scope"
+  | "scopes"
   | "file_type"
   | "file_size"
   | "created_at"
@@ -57,14 +57,22 @@ function CategoryBadge({ category }: { category: string | null }) {
   );
 }
 
-function ScopeBadge({ scope }: { scope: AgentScope }) {
-  const cls =
-    scope === "procedimientos"
-      ? "bg-amber-100 text-amber-800"
-      : "bg-belsue/10 text-belsue";
+/** Un distintivo por portal: un documento puede estar en varios. */
+function ScopeBadges({ scopes }: { scopes: AgentScope[] }) {
   return (
-    <span className={`whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
-      {SCOPES[scope].title}
+    <span className="flex flex-wrap gap-1">
+      {scopes.map((scope) => (
+        <span
+          key={scope}
+          className={`whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${
+            scope === "procedimientos"
+              ? "bg-amber-100 text-amber-800"
+              : "bg-belsue/10 text-belsue"
+          }`}
+        >
+          {SCOPES[scope].title}
+        </span>
+      ))}
     </span>
   );
 }
@@ -286,7 +294,7 @@ export default function DocumentList() {
                     {doc.name}
                   </td>
                   <td className="py-2 pr-4">
-                    <ScopeBadge scope={doc.scope} />
+                    <ScopeBadges scopes={doc.scopes} />
                   </td>
                   <td className="py-2 pr-4 text-gray-500">
                     {doc.company ?? "—"}
@@ -325,7 +333,7 @@ export default function DocumentList() {
                               description: doc.description,
                               company: doc.company,
                               category: doc.category,
-                              scope: doc.scope,
+                              scopes: doc.scopes,
                             })
                           }
                           className="text-sm font-medium text-belsue hover:underline"
@@ -364,7 +372,7 @@ export default function DocumentList() {
                 <div className="flex justify-between">
                   <dt>Portal</dt>
                   <dd>
-                    <ScopeBadge scope={doc.scope} />
+                    <ScopeBadges scopes={doc.scopes} />
                   </dd>
                 </div>
                 <div className="flex justify-between">
@@ -412,7 +420,7 @@ export default function DocumentList() {
                         description: doc.description,
                         company: doc.company,
                         category: doc.category,
-                        scope: doc.scope,
+                        scopes: doc.scopes,
                       })
                     }
                     className="flex-1 rounded-md border border-belsue/40 py-1.5 text-sm font-medium text-belsue hover:bg-belsue/5"

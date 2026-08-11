@@ -3,12 +3,12 @@ import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreText } from "@/lib/embeddings";
-import { AGENT_SCOPES } from "@/lib/scopes";
+import { AGENT_SCOPES, parseScopes, primaryScope } from "@/lib/scopes";
 
 export const runtime = "nodejs";
 
 const NOTE_FIELDS =
-  "id, name, content, company, category, scope, created_at, file_type";
+  "id, name, content, company, category, scopes, created_at, file_type";
 
 /**
  * GET /api/documents/note/{id} — devuelve una nota concreta (para editarla).
@@ -46,7 +46,7 @@ const updateSchema = z
     content: z.string().trim().min(10).optional(),
     company: z.string().trim().nullable().optional(),
     category: z.string().trim().optional(),
-    scope: z.enum(AGENT_SCOPES).optional(),
+    scopes: z.array(z.enum(AGENT_SCOPES)).nonempty().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, {
     message: "No hay cambios que guardar.",
@@ -92,8 +92,13 @@ export async function PATCH(
   }
   if (body.company !== undefined) updateFields.company = body.company || null;
   if (body.category !== undefined) updateFields.category = body.category;
-  // Permite recolocar una nota guardada en la pestaña equivocada.
-  if (body.scope !== undefined) updateFields.scope = body.scope;
+  // Permite recolocar una nota guardada en el portal equivocado, o ponerla
+  // en los dos.
+  if (body.scopes !== undefined) {
+    const scopes = parseScopes(body.scopes);
+    updateFields.scopes = scopes;
+    updateFields.scope = primaryScope(scopes);
+  }
 
   const { data, error } = await supabase
     .from("documents")

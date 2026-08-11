@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import ScopePicker from "@/components/admin/ScopePicker";
 import {
   DEFAULT_SCOPE,
-  SCOPE_LIST,
-  parseScope,
+  parseScopes,
+  primaryScope,
   scopeConfig,
   type AgentScope,
 } from "@/lib/scopes";
@@ -15,7 +16,7 @@ export interface EditableDocument {
   description: string | null;
   company: string | null;
   category: string | null;
-  scope?: AgentScope | null;
+  scopes?: AgentScope[] | null;
 }
 
 type Status = "idle" | "saving" | "success" | "error";
@@ -34,20 +35,20 @@ export default function DocumentMetaForm({
   const [name, setName] = useState(doc.name);
   const [description, setDescription] = useState(doc.description ?? "");
   const [company, setCompany] = useState(doc.company ?? "");
-  const [scope, setScope] = useState<AgentScope>(
-    doc.scope ? parseScope(doc.scope) : DEFAULT_SCOPE,
+  const [scopes, setScopes] = useState<AgentScope[]>(
+    doc.scopes?.length ? parseScopes(doc.scopes) : [DEFAULT_SCOPE],
   );
   const [category, setCategory] = useState(doc.category ?? "general");
 
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const config = scopeConfig(scope);
+  // Las categorías son las del portal principal: son taxonomías distintas.
+  const config = scopeConfig(primaryScope(scopes));
 
-  /** Al cambiar de portal, la categoría anterior puede no existir en el nuevo. */
-  function changeScope(next: AgentScope) {
-    setScope(next);
-    const stillValid = scopeConfig(next).categories.some(
+  function changeScopes(next: AgentScope[]) {
+    setScopes(next);
+    const stillValid = scopeConfig(primaryScope(next)).categories.some(
       (c) => c.value === category,
     );
     if (!stillValid) setCategory("general");
@@ -70,7 +71,7 @@ export default function DocumentMetaForm({
           description: description.trim() || null,
           company: company.trim() || null,
           category,
-          scope,
+          scopes,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -130,24 +131,7 @@ export default function DocumentMetaForm({
         />
       </label>
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-gray-600">Portal</span>
-        <select
-          value={scope}
-          onChange={(e) => changeScope(e.target.value as AgentScope)}
-          disabled={busy}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
-        >
-          {SCOPE_LIST.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.title}
-            </option>
-          ))}
-        </select>
-        <span className="mt-1 block text-xs text-gray-400">
-          El documento solo se usa para responder en este portal.
-        </span>
-      </label>
+      <ScopePicker value={scopes} onChange={changeScopes} disabled={busy} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm">

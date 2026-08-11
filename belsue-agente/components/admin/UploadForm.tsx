@@ -2,9 +2,10 @@
 
 import { useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase";
+import ScopePicker from "@/components/admin/ScopePicker";
 import {
   DEFAULT_SCOPE,
-  SCOPE_LIST,
+  primaryScope,
   scopeConfig,
   type AgentScope,
 } from "@/lib/scopes";
@@ -36,9 +37,9 @@ function getExt(filename: string): string {
 }
 
 /**
- * Subida de documentos. `scope` fija la pestaña por defecto a la que se envía
- * el documento; el desplegable permite cambiarla (el panel de administración lo
- * usa sin prefijar ninguna).
+ * Subida de documentos. `scope` marca por defecto el portal desde el que se
+ * sube; se pueden marcar los dos, y entonces el documento sirve para responder
+ * en ambos.
  */
 export default function UploadForm({
   scope = DEFAULT_SCOPE,
@@ -49,7 +50,7 @@ export default function UploadForm({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [company, setCompany] = useState("");
-  const [docScope, setDocScope] = useState<AgentScope>(scope);
+  const [docScopes, setDocScopes] = useState<AgentScope[]>([scope]);
   const [category, setCategory] = useState("general");
 
   const [status, setStatus] = useState<Status>("idle");
@@ -58,12 +59,13 @@ export default function UploadForm({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const config = scopeConfig(docScope);
+  // Las categorías son las del portal principal: son taxonomías distintas
+  // (ramos frente a áreas de la oficina) y hay que elegir una.
+  const config = scopeConfig(primaryScope(docScopes));
 
-  /** Al cambiar de ámbito, la categoría anterior puede no existir en el nuevo. */
-  function changeScope(next: AgentScope) {
-    setDocScope(next);
-    const stillValid = scopeConfig(next).categories.some(
+  function changeScopes(next: AgentScope[]) {
+    setDocScopes(next);
+    const stillValid = scopeConfig(primaryScope(next)).categories.some(
       (c) => c.value === category,
     );
     if (!stillValid) setCategory("general");
@@ -102,7 +104,7 @@ export default function UploadForm({
     setName("");
     setDescription("");
     setCompany("");
-    setDocScope(scope);
+    setDocScopes([scope]);
     setCategory("general");
     setStatus("idle");
     setError(null);
@@ -135,7 +137,7 @@ export default function UploadForm({
           description: description || undefined,
           company: company || undefined,
           category,
-          scope: docScope,
+          scopes: docScopes,
         }),
       });
       const urlData = await urlRes.json();
@@ -272,26 +274,14 @@ export default function UploadForm({
           />
         </label>
 
-        <label className="text-sm sm:col-span-2">
-          <span className="mb-1 block font-medium text-gray-600">
-            Pestaña del asistente <span className="text-belsue">*</span>
-          </span>
-          <select
-            value={docScope}
-            onChange={(e) => changeScope(e.target.value as AgentScope)}
+        <div className="sm:col-span-2">
+          <ScopePicker
+            value={docScopes}
+            onChange={changeScopes}
             disabled={busy}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
-          >
-            {SCOPE_LIST.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title}
-              </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-xs text-gray-400">
-            El documento solo se usará para responder en esta pestaña.
-          </span>
-        </label>
+            hint="Marca los dos si el documento sirve para ambos: se indexa una sola vez y responde en los dos portales."
+          />
+        </div>
 
         <label className="text-sm">
           <span className="mb-1 block font-medium text-gray-600">

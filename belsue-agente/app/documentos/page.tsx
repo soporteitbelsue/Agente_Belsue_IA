@@ -19,7 +19,7 @@ interface Doc {
   description: string | null;
   company: string | null;
   category: string | null;
-  scope: AgentScope;
+  scopes: AgentScope[];
   file_type: string;
   file_size: number;
   created_at: string;

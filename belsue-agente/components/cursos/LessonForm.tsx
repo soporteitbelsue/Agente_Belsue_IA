@@ -100,7 +100,7 @@ export default function LessonForm({
           fileSize: file.size,
           description: description.trim() || undefined,
           category: "general",
-          scope: "procedimientos",
+          scopes: ["procedimientos"],
         }),
       });
       const urlData = await urlRes.json();

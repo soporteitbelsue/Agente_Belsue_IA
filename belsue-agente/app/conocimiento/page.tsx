@@ -20,7 +20,7 @@ interface Note {
   content: string | null;
   company: string | null;
   category: string | null;
-  scope: AgentScope;
+  scopes: AgentScope[];
   created_at: string;
   author: string | null;
 }
@@ -175,7 +175,7 @@ function ConocimientoContent() {
                     content: n.content,
                     company: n.company,
                     category: n.category,
-                    scope: n.scope,
+                    scopes: n.scopes,
                   })
                 }
                 className="ml-auto font-medium text-belsue hover:underline"

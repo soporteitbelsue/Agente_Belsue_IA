@@ -3,7 +3,7 @@ import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/conversations";
 import { createSignedUpload } from "@/lib/storage";
-import { AGENT_SCOPES, DEFAULT_SCOPE } from "@/lib/scopes";
+import { AGENT_SCOPES, DEFAULT_SCOPE, parseScopes, primaryScope } from "@/lib/scopes";
 
 export const runtime = "nodejs";
 
@@ -30,6 +30,9 @@ const bodySchema = z.object({
   description: z.string().trim().optional(),
   company: z.string().trim().optional(),
   category: z.string().trim().optional(),
+  /** Portales en los que se usará el documento (al menos uno). */
+  scopes: z.array(z.enum(AGENT_SCOPES)).nonempty().optional(),
+  /** Compatibilidad: un único portal. */
   scope: z.enum(AGENT_SCOPES).optional().default(DEFAULT_SCOPE),
 });
 
@@ -75,6 +78,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const scopes = parseScopes(body.scopes ?? [body.scope]);
+
   const supabase = supabaseServer();
 
   // 1. Registrar el documento (todavía sin chunks; file_path se fija abajo).
@@ -88,7 +93,9 @@ export async function POST(req: NextRequest) {
       file_size: body.fileSize,
       category: body.category ?? null,
       company: body.company ?? null,
-      scope: body.scope,
+      scopes,
+      // `scope` se mantiene con el portal principal por compatibilidad.
+      scope: primaryScope(scopes),
       created_by: userId,
     })
     .select("id")

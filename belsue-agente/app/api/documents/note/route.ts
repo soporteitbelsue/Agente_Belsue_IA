@@ -8,6 +8,8 @@ import {
   AGENT_SCOPES,
   DEFAULT_SCOPE,
   parseScope,
+  parseScopes,
+  primaryScope,
   scopeConfig,
 } from "@/lib/scopes";
 
@@ -22,6 +24,9 @@ const bodySchema = z.object({
   description: z.string().trim().optional(),
   company: z.string().trim().optional(),
   category: z.string().trim().optional(),
+  /** Portales en los que se usará la nota (al menos uno). */
+  scopes: z.array(z.enum(AGENT_SCOPES)).nonempty().optional(),
+  /** Compatibilidad: un único portal. */
   scope: z.enum(AGENT_SCOPES).optional().default(DEFAULT_SCOPE),
 });
 
@@ -31,7 +36,7 @@ interface NoteRow {
   content: string | null;
   company: string | null;
   category: string | null;
-  scope: string | null;
+  scopes: string[] | null;
   created_at: string;
   users: { name: string } | null;
 }
@@ -56,10 +61,10 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from("documents")
       .select(
-        "id, name, content, company, category, scope, created_at, users(name)",
+        "id, name, content, company, category, scopes, created_at, users(name)",
       )
       .eq("file_type", "nota")
-      .eq("scope", scope)
+      .contains("scopes", [scope])
       .order("created_at", { ascending: false });
 
     if (category) query = query.eq("category", category);
@@ -77,7 +82,7 @@ export async function GET(req: NextRequest) {
       content: n.content,
       company: n.company,
       category: n.category,
-      scope: parseScope(n.scope),
+      scopes: parseScopes(n.scopes),
       created_at: n.created_at,
       author: n.users?.name ?? null,
     }));
@@ -123,7 +128,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { name, content, description, company, category, scope } = parsed;
+  const { name, content, description, company, category } = parsed;
+  const scopes = parseScopes(parsed.scopes ?? [parsed.scope]);
 
   const supabase = supabaseServer();
 
@@ -138,7 +144,9 @@ export async function POST(req: NextRequest) {
       file_size: Buffer.byteLength(content, "utf8"),
       category: category ?? null,
       company: company ?? null,
-      scope,
+      scopes,
+      // `scope` se mantiene con el portal principal por compatibilidad.
+      scope: primaryScope(scopes),
       content,
       created_by: userId,
     })
@@ -173,12 +181,13 @@ export async function POST(req: NextRequest) {
     .select("name, email")
     .eq("id", userId)
     .maybeSingle();
-  const config = scopeConfig(scope);
+  const config = scopeConfig(primaryScope(scopes));
+  const portales = scopes.map((s) => scopeConfig(s).title).join(" y ");
   await sendNotification(
-    `🟢 Nueva nota en ${config.title}`,
+    `🟢 Nueva nota en ${portales}`,
     `<p><b>${escapeHtml(author?.name ?? "Un usuario")}</b> (${escapeHtml(
       author?.email ?? "",
-    )}) ha añadido una nota en <b>${escapeHtml(config.title)}</b>:</p>
+    )}) ha añadido una nota en <b>${escapeHtml(portales)}</b>:</p>
      <p><b>Título:</b> ${escapeHtml(name)}${
        company
          ? ` · <b>${escapeHtml(config.secondaryField.label)}:</b> ${escapeHtml(

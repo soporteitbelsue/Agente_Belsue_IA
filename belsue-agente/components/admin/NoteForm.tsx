@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import ScopePicker from "@/components/admin/ScopePicker";
 import {
   DEFAULT_SCOPE,
-  SCOPE_LIST,
-  parseScope,
+  parseScopes,
+  primaryScope,
   scopeConfig,
   type AgentScope,
 } from "@/lib/scopes";
@@ -17,7 +18,7 @@ export interface EditableNote {
   content: string | null;
   company: string | null;
   category: string | null;
-  scope?: AgentScope | null;
+  scopes?: AgentScope[] | null;
 }
 
 /**
@@ -25,9 +26,9 @@ export interface EditableNote {
  * - `embedded`: sin tarjeta propia (para usarlo dentro de un modal).
  * - `onSaved`: callback tras guardar con éxito (además del mensaje de éxito).
  * - `note`: si se pasa, el formulario entra en modo edición (PATCH).
- * - `scope`: ámbito con el que se crea la nota. El desplegable de ámbito
- *   permite además recolocar una nota guardada en la pestaña equivocada, y al
- *   cambiarlo cambian las categorías y las etiquetas del formulario.
+ * - `scope`: portal marcado por defecto. Se pueden marcar los dos, y entonces
+ *   la nota responde en ambos; las categorías y etiquetas son las del portal
+ *   principal (el primero marcado).
  */
 export default function NoteForm({
   embedded = false,
@@ -44,20 +45,20 @@ export default function NoteForm({
   const [name, setName] = useState(note?.name ?? "");
   const [content, setContent] = useState(note?.content ?? "");
   const [company, setCompany] = useState(note?.company ?? "");
-  const [noteScope, setNoteScope] = useState<AgentScope>(
-    note?.scope ? parseScope(note.scope) : scope,
+  const [noteScopes, setNoteScopes] = useState<AgentScope[]>(
+    note?.scopes?.length ? parseScopes(note.scopes) : [scope],
   );
   const [category, setCategory] = useState(note?.category ?? "general");
 
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const config = scopeConfig(noteScope);
+  // Las categorías son las del portal principal: son taxonomías distintas.
+  const config = scopeConfig(primaryScope(noteScopes));
 
-  /** Al cambiar de ámbito, la categoría anterior puede no existir en el nuevo. */
-  function changeScope(next: AgentScope) {
-    setNoteScope(next);
-    const stillValid = scopeConfig(next).categories.some(
+  function changeScopes(next: AgentScope[]) {
+    setNoteScopes(next);
+    const stillValid = scopeConfig(primaryScope(next)).categories.some(
       (c) => c.value === category,
     );
     if (!stillValid) setCategory("general");
@@ -68,7 +69,7 @@ export default function NoteForm({
     setContent("");
     setCompany("");
     setCategory("general");
-    setNoteScope(scope);
+    setNoteScopes([scope]);
     setStatus("idle");
     setError(null);
   }
@@ -98,7 +99,7 @@ export default function NoteForm({
             content: content.trim(),
             company: company.trim() || (isEdit ? null : undefined),
             category,
-            scope: noteScope,
+            scopes: noteScopes,
           }),
         },
       );
@@ -169,26 +170,12 @@ export default function NoteForm({
         <p className="text-sm text-gray-500">{config.note.help}</p>
       </div>
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-gray-600">
-          Pestaña del asistente <span className="text-belsue">*</span>
-        </span>
-        <select
-          value={noteScope}
-          onChange={(e) => changeScope(e.target.value as AgentScope)}
-          disabled={busy}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
-        >
-          {SCOPE_LIST.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.title}
-            </option>
-          ))}
-        </select>
-        <span className="mt-1 block text-xs text-gray-400">
-          La nota solo se usará para responder en esta pestaña.
-        </span>
-      </label>
+      <ScopePicker
+        value={noteScopes}
+        onChange={changeScopes}
+        disabled={busy}
+        hint="Marca los dos si lo que cuentas sirve en ambos portales."
+      />
 
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-gray-600">

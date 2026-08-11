@@ -4,7 +4,7 @@ import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreBuffer } from "@/lib/embeddings";
 import { downloadFile, removeFile } from "@/lib/storage";
 import { sendNotification, escapeHtml } from "@/lib/email";
-import { scopeConfig } from "@/lib/scopes";
+import { parseScopes, scopeConfig } from "@/lib/scopes";
 
 export const runtime = "nodejs";
 // Indexar PDFs grandes puede tardar; ampliamos el límite (Vercel Pro).
@@ -27,7 +27,7 @@ export async function POST(
 
   const { data: doc, error } = await supabase
     .from("documents")
-    .select("id, name, file_path, file_type, company, category, scope")
+    .select("id, name, file_path, file_type, company, category, scopes")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -51,7 +51,9 @@ export async function POST(
       .select("name, email")
       .eq("id", userId)
       .maybeSingle();
-    const portal = scopeConfig(doc.scope).title;
+    const portal = parseScopes(doc.scopes)
+      .map((s) => scopeConfig(s).title)
+      .join(" y ");
     await sendNotification(
       `📄 Nuevo documento subido a ${portal}`,
       `<p><b>${escapeHtml(author?.name ?? "Un usuario")}</b> (${escapeHtml(

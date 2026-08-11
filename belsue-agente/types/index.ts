@@ -65,8 +65,8 @@ export interface Document {
   company: string | null;
   /** Texto original de la nota; null en documentos con archivo. */
   content: string | null;
-  /** Pestaña del asistente a la que pertenece. */
-  scope: AgentScope;
+  /** Portales en los que se usa el documento (uno o varios). */
+  scopes: AgentScope[];
   created_at: string;
   updated_at: string;
 }

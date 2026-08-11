@@ -31,6 +31,31 @@ export function parseScope(value: unknown): AgentScope {
   return isAgentScope(value) ? value : DEFAULT_SCOPE;
 }
 
+/**
+ * Normaliza la LISTA de portales de un documento. Un documento puede estar en
+ * varios (por ejemplo, un protocolo que sirve tanto para producto como para la
+ * organización interna). Nunca devuelve una lista vacía.
+ */
+export function parseScopes(value: unknown): AgentScope[] {
+  const list = Array.isArray(value) ? value.filter(isAgentScope) : [];
+  const unique = sortScopes([...new Set(list)]);
+  return unique.length > 0 ? unique : [DEFAULT_SCOPE];
+}
+
+/** Ordena una selección de portales según el orden canónico. */
+export function sortScopes(scopes: AgentScope[]): AgentScope[] {
+  return AGENT_SCOPES.filter((s) => scopes.includes(s));
+}
+
+/**
+ * Portal principal de un documento: el primero de la lista. Decide de qué
+ * portal son las categorías disponibles y qué valor se guarda en la columna
+ * `scope`, que se mantiene por compatibilidad.
+ */
+export function primaryScope(scopes: AgentScope[]): AgentScope {
+  return scopes[0] ?? DEFAULT_SCOPE;
+}
+
 export interface ScopeCategory {
   value: string;
   label: string;
