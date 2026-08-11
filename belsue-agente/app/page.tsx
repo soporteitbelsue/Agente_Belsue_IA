@@ -24,6 +24,26 @@ const PORTAL_HIGHLIGHTS: Record<AgentScope, string[]> = {
   ],
 };
 
+/**
+ * Puntos del fondo. Cada uno con su sitio, su tamaño y sus ritmos: los dos
+ * valores de duración y retardo corresponden a las dos animaciones que llevan
+ * encima (flotar y parpadear). Al no ser múltiplos entre sí, la combinación
+ * tarda muchísimo en repetirse y no se percibe el bucle.
+ */
+const DOTS: {
+  style: React.CSSProperties;
+  delay: string;
+  duration: string;
+}[] = [
+  { style: { left: "12%", top: "18%", width: 12, height: 12 }, delay: "0s, 0s", duration: "13s, 8s" },
+  { style: { right: "18%", top: "26%", width: 8, height: 8 }, delay: "-4s, -2s", duration: "10s, 6.5s" },
+  { style: { left: "28%", bottom: "16%", width: 10, height: 10 }, delay: "-8s, -5s", duration: "15s, 9s" },
+  { style: { right: "30%", bottom: "24%", width: 6, height: 6 }, delay: "-6s, -3s", duration: "11s, 7s" },
+  { style: { left: "46%", top: "10%", width: 7, height: 7 }, delay: "-2s, -6s", duration: "12s, 8.5s" },
+  { style: { right: "10%", top: "52%", width: 9, height: 9 }, delay: "-9s, -4s", duration: "14s, 7.5s" },
+  { style: { left: "6%", bottom: "34%", width: 5, height: 5 }, delay: "-5s, -1s", duration: "9s, 6s" },
+];
+
 function Check() {
   return (
     <svg
@@ -62,14 +82,22 @@ function PortalCard({
       style={{ animationDelay: `${index * 0.09}s` }}
       className="animate-rise group flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:ring-belsue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-belsue"
     >
-      {icon}
+      {/* El icono se inclina y crece un poco al pasar por encima. */}
+      <span className="inline-block transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
+        {icon}
+      </span>
 
       <h2 className="mt-4 text-lg font-bold text-gray-900">{title}</h2>
       <p className="mt-1 text-sm leading-relaxed text-gray-500">{description}</p>
 
       <ul className="mt-4 space-y-2 text-sm text-gray-600">
-        {highlights.map((item) => (
-          <li key={item} className="flex gap-2">
+        {highlights.map((item, i) => (
+          <li
+            key={item}
+            // Los puntos se van escribiendo detrás de la tarjeta que los trae.
+            style={{ animationDelay: `${index * 0.09 + 0.2 + i * 0.08}s` }}
+            className="animate-rise flex gap-2"
+          >
             <Check />
             <span>{item}</span>
           </li>
@@ -122,20 +150,25 @@ export default async function HomePage() {
           className="animate-spin-slow absolute -right-16 bottom-10 h-64 w-64 rounded-[55%_45%_40%_60%/50%_55%_45%_50%] bg-belsue/[0.05]"
         />
 
-        {/* Puntos sueltos flotando. */}
-        <div className="animate-float absolute left-[12%] top-[18%] h-3 w-3 rounded-full bg-belsue/20" />
+        {/* Auroras: manchas grandes y difuminadas que vagan por el fondo. */}
+        <div className="animate-aurora absolute left-[8%] top-[8%] h-80 w-80 rounded-full bg-belsue-100/35 blur-3xl" />
         <div
-          style={{ animationDelay: "-4s" }}
-          className="animate-float absolute right-[18%] top-[26%] h-2 w-2 rounded-full bg-belsue/25"
+          style={{ animationDelay: "-17s" }}
+          className="animate-aurora absolute right-[6%] bottom-[6%] h-96 w-96 rounded-full bg-belsue/[0.06] blur-3xl"
         />
-        <div
-          style={{ animationDelay: "-8s" }}
-          className="animate-float absolute left-[28%] bottom-[16%] h-2.5 w-2.5 rounded-full bg-belsue/15"
-        />
-        <div
-          style={{ animationDelay: "-6s" }}
-          className="animate-float absolute right-[30%] bottom-[24%] h-1.5 w-1.5 rounded-full bg-belsue/25"
-        />
+
+        {/* Puntos flotando y parpadeando, cada uno a su ritmo. */}
+        {DOTS.map((dot, i) => (
+          <div
+            key={i}
+            style={{
+              ...dot.style,
+              animationDelay: dot.delay,
+              animationDuration: dot.duration,
+            }}
+            className="animate-float-twinkle absolute rounded-full bg-belsue/40"
+          />
+        ))}
       </div>
 
       <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-12">

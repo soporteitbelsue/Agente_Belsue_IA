@@ -148,6 +148,35 @@ button:disabled,
   }
 }
 
+/* Aurora: manchas grandes y difuminadas que vagan por el fondo. Recorrido
+   largo pero muy lento, para que se perciba como un ambiente y no como algo
+   que se mueve delante de la vista. */
+@keyframes belsue-aurora {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(4rem, -2.5rem, 0) scale(1.14);
+  }
+  66% {
+    transform: translate3d(-3rem, 2.5rem, 0) scale(0.94);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* Parpadeo suave de los puntos: nunca llegan a apagarse del todo. */
+@keyframes belsue-twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
 /* Confirmación: el tic aparece con un pequeño rebote. */
 @keyframes belsue-pop {
   0% {
@@ -177,6 +206,18 @@ button:disabled,
   animation: belsue-float 11s ease-in-out infinite alternate;
 }
 
+.animate-aurora {
+  animation: belsue-aurora 34s ease-in-out infinite;
+}
+
+/* Los puntos flotan y parpadean a la vez, con ritmos distintos para que la
+   combinación no se repita de forma reconocible. */
+.animate-float-twinkle {
+  animation:
+    belsue-float 11s ease-in-out infinite alternate,
+    belsue-twinkle 7s ease-in-out infinite;
+}
+
 .animate-spin-slow {
   animation: belsue-spin-slow 70s linear infinite;
 }
@@ -196,6 +237,8 @@ button:disabled,
   .animate-slide-in,
   .animate-drift,
   .animate-float,
+  .animate-float-twinkle,
+  .animate-aurora,
   .animate-spin-slow,
   .animate-pop,
   .thinking-dot,
