@@ -73,7 +73,10 @@ function HeaderInner() {
 
   return (
     <header className="bg-belsue text-white shadow-sm">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3">
+      {/* A todo el ancho, no centrada: el contenido de la aplicación (barra
+          lateral, conversación y panel de fuentes) también ocupa toda la
+          pantalla, y una cabecera estrecha dejaba los lados vacíos. */}
+      <div className="flex w-full items-center gap-3 px-4 py-3 sm:px-6">
         {/* Identidad: dentro de un portal, el logo lleva a su chat. */}
         <Link
           href={portal?.path ?? "/"}
@@ -95,9 +98,10 @@ function HeaderInner() {
         </Link>
 
         {user ? (
-          <div className="flex items-center gap-3">
-            {/* Navegación del portal, en pestañas: se ve dónde estás. */}
-            <nav className="hidden items-center gap-1 md:flex">
+          <>
+            {/* Navegación del portal, en pestañas: se ve dónde estás.
+                `mx-auto` la deja centrada entre el logo y las acciones. */}
+            <nav className="mx-auto hidden items-center gap-1 md:flex">
               {portal && (
                 <>
                   <NavTab href={portal.path} active={pathname === portal.path}>
@@ -134,6 +138,8 @@ function HeaderInner() {
               )}
             </nav>
 
+            {/* Acciones, pegadas al borde derecho. */}
+            <div className="ml-auto flex items-center gap-3">
             {/* Fuentes de la respuesta: solo mientras hay un chat delante. */}
             {sources?.available && (
               <button
@@ -204,7 +210,8 @@ function HeaderInner() {
               </svg>
               <span className="hidden sm:inline">Salir</span>
             </button>
-          </div>
+            </div>
+          </>
         ) : null}
       </div>
     </header>
