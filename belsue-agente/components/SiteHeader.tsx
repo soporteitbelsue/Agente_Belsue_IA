@@ -77,7 +77,9 @@ function HeaderInner() {
           href={portal?.path ?? "/"}
           className="flex min-w-0 items-center gap-2.5"
         >
-          <PortalLogo scope={portal?.id ?? DEFAULT_SCOPE} />
+          <PortalLogo
+            scope={portal?.id ?? (inAdmin ? "admin" : DEFAULT_SCOPE)}
+          />
           <span className="min-w-0">
             <span className="block truncate text-lg font-semibold leading-tight tracking-tight">
               {portal?.title ?? (inAdmin ? "Administración" : "Asistente Belsué")}
