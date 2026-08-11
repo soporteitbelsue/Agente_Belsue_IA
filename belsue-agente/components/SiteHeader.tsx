@@ -2,11 +2,15 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import formadorImg from "@/imagenes/formador.png";
-import { SCOPE_LIST, parseScope, type ScopeConfig } from "@/lib/scopes";
+import PortalLogo from "@/components/PortalLogo";
+import {
+  DEFAULT_SCOPE,
+  SCOPE_LIST,
+  parseScope,
+  type ScopeConfig,
+} from "@/lib/scopes";
 
 function initials(name: string): string {
   return name
@@ -48,14 +52,7 @@ function HeaderInner() {
           href={portal?.path ?? "/"}
           className="flex min-w-0 items-center gap-2.5"
         >
-          <span className="block h-11 w-11 shrink-0 overflow-hidden rounded-full bg-white shadow-sm ring-2 ring-white/50">
-            <Image
-              src={formadorImg}
-              alt=""
-              className="h-full w-full scale-[1.7] object-cover object-[center_26%]"
-              priority
-            />
-          </span>
+          <PortalLogo scope={portal?.id ?? DEFAULT_SCOPE} />
           <span className="min-w-0">
             <span className="block truncate text-lg font-semibold leading-tight tracking-tight">
               {portal?.title ?? (inAdmin ? "Administración" : "Asistente Belsué")}
