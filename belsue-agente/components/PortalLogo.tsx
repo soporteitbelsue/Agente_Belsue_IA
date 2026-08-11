@@ -24,17 +24,15 @@ const LOGOS: Record<AgentScope, { src: StaticImageData; fit: string }> = {
 
 export default function PortalLogo({
   scope,
-  className = "h-11 w-11 ring-2 ring-white/50",
+  className = "h-11 w-11 rounded-full bg-white shadow-sm ring-2 ring-white/50",
 }: {
   scope: unknown;
-  /** Tamaño y borde del círculo. */
+  /** Tamaño, forma y fondo del recuadro que envuelve la imagen. */
   className?: string;
 }) {
   const logo = LOGOS[parseScope(scope)];
   return (
-    <span
-      className={`block shrink-0 overflow-hidden rounded-full bg-white shadow-sm ${className}`}
-    >
+    <span className={`block shrink-0 overflow-hidden ${className}`}>
       <Image
         src={logo.src}
         alt=""
