@@ -21,7 +21,7 @@ const PORTAL_HIGHLIGHTS: Record<AgentScope, string[]> = {
   procedimientos: [
     "Cómo nos organizamos y quién lleva cada cosa",
     "Pasos de los trámites internos",
-    "Herramientas, horarios y normas de la oficina",
+    "Cursos de formación interna, con su seguimiento",
   ],
 };
 

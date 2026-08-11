@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import mammoth from "mammoth";
+import { unzipSync } from "fflate";
 import type { FileType } from "@/types";
 
 /** Normaliza el texto extraído: colapsa espacios y líneas vacías repetidas. */
@@ -90,8 +91,73 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
   return pages.join("\n");
 }
 
+/** Devuelve el texto de los nodos `<a:t>` de un XML de OOXML, en orden. */
+function xmlRunsToText(xml: string): string[] {
+  const runs = xml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/g) ?? [];
+  return runs.map((run) =>
+    run
+      .replace(/<[^>]+>/g, "")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'"),
+  );
+}
+
+/** Ordena slide2.xml antes que slide10.xml (el orden alfabético no vale). */
+function slideNumber(path: string): number {
+  return Number(path.match(/(\d+)\.xml$/)?.[1] ?? 0);
+}
+
 /**
- * Extrae el texto plano de un buffer en memoria (PDF, DOCX o TXT).
+ * Extrae el texto de un PPTX. Por dentro es un ZIP con un XML por diapositiva;
+ * lo abrimos con `fflate` y recogemos el texto de cada una.
+ *
+ * Incluimos también las notas del ponente: en las presentaciones de formación
+ * la diapositiva suele ser un titular y la explicación de verdad está en las
+ * notas, así que sin ellas el agente se queda con la mitad.
+ */
+function extractPptxText(buffer: Buffer): string {
+  const files = unzipSync(new Uint8Array(buffer));
+  const decoder = new TextDecoder("utf-8");
+
+  const slidePaths = Object.keys(files)
+    .filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p))
+    .sort((a, b) => slideNumber(a) - slideNumber(b));
+
+  if (slidePaths.length === 0) {
+    throw new Error("El PPTX no contiene diapositivas legibles.");
+  }
+
+  const parts: string[] = [];
+  for (const path of slidePaths) {
+    const n = slideNumber(path);
+    const texts = xmlRunsToText(decoder.decode(files[path]!));
+
+    const notesPath = `ppt/notesSlides/notesSlide${n}.xml`;
+    const notes = files[notesPath]
+      ? xmlRunsToText(decoder.decode(files[notesPath]!))
+          // PowerPoint mete el número de diapositiva como un run suelto.
+          .filter((t) => t.trim() && t.trim() !== String(n))
+      : [];
+
+    const slide = [
+      `[Diapositiva ${n}]`,
+      texts.join("\n"),
+      notes.length ? `Notas: ${notes.join(" ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    parts.push(slide);
+  }
+
+  return parts.join("\n\n");
+}
+
+/**
+ * Extrae el texto plano de un buffer en memoria (PDF, DOCX, PPTX o TXT).
  */
 export async function extractTextFromBuffer(
   buffer: Buffer,
@@ -106,6 +172,9 @@ export async function extractTextFromBuffer(
     case "docx": {
       const result = await mammoth.extractRawText({ buffer });
       return cleanText(result.value);
+    }
+    case "pptx": {
+      return cleanText(extractPptxText(buffer));
     }
     case "txt": {
       return cleanText(buffer.toString("utf-8"));

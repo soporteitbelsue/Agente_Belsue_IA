@@ -70,6 +70,8 @@ export interface ScopeConfig {
   knowledge: { title: string; description: string };
   /** Texto de la página de documentos. */
   documentsDescription: string;
+  /** Secciones propias del portal, además de documentos y conocimiento. */
+  extraLinks?: { label: string; href: string }[];
 }
 
 const SEGUROS: ScopeConfig = {
@@ -174,6 +176,7 @@ const PROCEDIMIENTOS: ScopeConfig = {
   },
   documentsDescription:
     "Manuales, protocolos y plantillas internas de la oficina.",
+  extraLinks: [{ label: "Cursos", href: "/procedimientos/cursos" }],
 };
 
 export const SCOPES: Record<AgentScope, ScopeConfig> = {

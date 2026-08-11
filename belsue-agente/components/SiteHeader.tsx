@@ -73,6 +73,15 @@ function HeaderInner() {
             {/* Navegación interna del portal en el que estás. */}
             {portal && (
               <>
+                {portal.extraLinks?.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="hidden text-sm text-white/90 hover:text-white sm:inline"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
                 <Link
                   href={`/documentos?scope=${portal.id}`}
                   className="hidden text-sm text-white/90 hover:text-white sm:inline"

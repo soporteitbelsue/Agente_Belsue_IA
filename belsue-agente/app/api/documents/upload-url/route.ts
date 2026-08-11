@@ -11,14 +11,22 @@ const EXT_TO_TYPE: Record<string, string> = {
   ".pdf": "pdf",
   ".docx": "docx",
   ".txt": "txt",
+  ".pptx": "pptx",
 };
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
+// Las presentaciones pesan por las imágenes, no por el texto: extraerlo es
+// igual de rápido, así que se les da más margen que a un PDF.
+const MAX_SIZE_PPTX = 50 * 1024 * 1024; // 50 MB
+
+function maxSizeFor(ext: string): number {
+  return ext === ".pptx" ? MAX_SIZE_PPTX : MAX_SIZE;
+}
 
 const bodySchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio."),
   ext: z.string().trim().toLowerCase(),
-  fileSize: z.number().int().positive().max(MAX_SIZE, "El archivo supera 20 MB."),
+  fileSize: z.number().int().positive(),
   description: z.string().trim().optional(),
   company: z.string().trim().optional(),
   category: z.string().trim().optional(),
@@ -54,7 +62,15 @@ export async function POST(req: NextRequest) {
   const fileType = EXT_TO_TYPE[body.ext];
   if (!fileType) {
     return NextResponse.json(
-      { error: "Tipo de archivo no permitido. Solo PDF, DOCX o TXT." },
+      { error: "Tipo de archivo no permitido. Solo PDF, DOCX, PPTX o TXT." },
+      { status: 400 },
+    );
+  }
+
+  const limit = maxSizeFor(body.ext);
+  if (body.fileSize > limit) {
+    return NextResponse.json(
+      { error: `El archivo supera ${Math.round(limit / 1024 / 1024)} MB.` },
       { status: 400 },
     );
   }

@@ -86,6 +86,10 @@ interface DocMeta {
   description?: string | null;
   company?: string | null;
   category?: string | null;
+  /** Curso y lección a los que pertenece, si el documento es material de un curso. */
+  courseTitle?: string | null;
+  lessonTitle?: string | null;
+  lessonPosition?: number | null;
 }
 
 /**
@@ -93,15 +97,31 @@ interface DocMeta {
  * fragmento (título, compañía, categoría y DESCRIPCIÓN). Permite localizar el
  * documento por lo que el usuario escribe al subirlo, no solo por el texto
  * extraído del archivo (que en formularios es muy pobre).
+ *
+ * Si el documento es una lección, se nombran el curso y la lección: así el
+ * agente puede responder remitiendo al punto exacto de la formación.
  */
 function buildMetadataHeader(doc: DocMeta | null): string {
   if (!doc) return "";
   const parts: string[] = [];
   if (doc.name) parts.push(`Título: ${doc.name}`);
+  if (doc.courseTitle) parts.push(`Curso: ${doc.courseTitle}`);
+  if (doc.lessonTitle) {
+    const n = doc.lessonPosition;
+    parts.push(
+      `Lección${typeof n === "number" ? ` ${n + 1}` : ""}: ${doc.lessonTitle}`,
+    );
+  }
   if (doc.company) parts.push(`Compañía: ${doc.company}`);
   if (doc.category) parts.push(`Categoría: ${doc.category}`);
   if (doc.description) parts.push(`Descripción: ${doc.description}`);
   return parts.join(". ");
+}
+
+interface LessonJoin {
+  title: string | null;
+  position: number | null;
+  courses: { title: string } | null;
 }
 
 async function fetchDocMeta(documentId: string): Promise<DocMeta | null> {
@@ -111,7 +131,25 @@ async function fetchDocMeta(documentId: string): Promise<DocMeta | null> {
     .select("name, description, company, category")
     .eq("id", documentId)
     .maybeSingle();
-  return data as DocMeta | null;
+  if (!data) return null;
+
+  // Un documento puede ser lección de un curso (o de ninguno).
+  const { data: lesson } = await supabase
+    .from("lessons")
+    .select("title, position, courses(title)")
+    .eq("document_id", documentId)
+    .order("position", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const l = lesson as unknown as LessonJoin | null;
+
+  return {
+    ...(data as DocMeta),
+    courseTitle: l?.courses?.title ?? null,
+    lessonTitle: l?.title ?? null,
+    lessonPosition: l?.position ?? null,
+  };
 }
 
 /**

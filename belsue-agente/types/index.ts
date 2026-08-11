@@ -1,7 +1,7 @@
 import type { DefaultSession } from "next-auth";
 import type { AgentScope } from "@/lib/scopes";
 
-export type FileType = "pdf" | "docx" | "txt" | "nota";
+export type FileType = "pdf" | "docx" | "txt" | "nota" | "pptx";
 
 export type UserRole = "asesor" | "admin";
 
@@ -137,6 +137,45 @@ export interface Message {
 
 export interface ConversationWithMessages extends Conversation {
   messages: Message[];
+}
+
+// --- Cursos (formación interna) ---
+
+/** Refleja la tabla `courses`. */
+export interface Course {
+  id: string;
+  title: string;
+  description: string | null;
+  scope: AgentScope;
+  position: number;
+  created_at: string;
+}
+
+/** Curso tal y como se lista, con el progreso de quien lo consulta. */
+export interface CourseSummary extends Course {
+  lesson_count: number;
+  viewed_count: number;
+}
+
+/** Refleja la tabla `lessons`, con los datos del documento asociado. */
+export interface Lesson {
+  id: string;
+  course_id: string;
+  document_id: string;
+  title: string;
+  description: string | null;
+  position: number;
+  created_at: string;
+  /** Datos del material (documento) de la lección. */
+  file_type: FileType;
+  file_size: number;
+  downloadable: boolean;
+  /** true si el usuario que consulta ya la ha marcado como vista. */
+  viewed: boolean;
+}
+
+export interface CourseWithLessons extends Course {
+  lessons: Lesson[];
 }
 
 // --- Métricas (panel de administración) ---

@@ -12,8 +12,10 @@ import {
 // Debe coincidir con DOCUMENTS_BUCKET de lib/storage.ts.
 const DOCUMENTS_BUCKET = "documentos";
 
-const ACCEPTED_EXT = [".pdf", ".docx", ".txt"];
+const ACCEPTED_EXT = [".pdf", ".docx", ".txt", ".pptx"];
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
+// Las presentaciones pesan por las imágenes, no por el texto (ver upload-url).
+const MAX_SIZE_PPTX = 50 * 1024 * 1024;
 
 type Status = "idle" | "uploading" | "processing" | "success" | "error";
 
@@ -71,10 +73,13 @@ export default function UploadForm({
     const lower = f.name.toLowerCase();
     const okExt = ACCEPTED_EXT.some((ext) => lower.endsWith(ext));
     if (!okExt) {
-      return "Tipo de archivo no permitido. Solo PDF, DOCX o TXT.";
+      return "Tipo de archivo no permitido. Solo PDF, DOCX, PPTX o TXT.";
     }
-    if (f.size > MAX_SIZE) {
-      return "El archivo supera el tamaño máximo de 20 MB.";
+    const limit = lower.endsWith(".pptx") ? MAX_SIZE_PPTX : MAX_SIZE;
+    if (f.size > limit) {
+      return `El archivo supera el tamaño máximo de ${Math.round(
+        limit / 1024 / 1024,
+      )} MB.`;
     }
     return null;
   }
@@ -236,7 +241,7 @@ export default function UploadForm({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.docx,.txt"
+          accept=".pdf,.docx,.txt,.pptx"
           className="hidden"
           onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
           disabled={busy}
