@@ -104,16 +104,39 @@ export default async function HomePage() {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-belsue-50/50">
-      {/* Formas de fondo, muy tenues: dan color sin restar legibilidad. */}
-      <div
-        aria-hidden
-        className="animate-drift pointer-events-none absolute -right-32 -top-40 h-[28rem] w-[28rem] rounded-full bg-belsue-100/40 blur-[2px]"
-      />
-      <div
-        aria-hidden
-        style={{ animationDelay: "-13s" }}
-        className="animate-drift pointer-events-none absolute -bottom-48 -left-40 h-[30rem] w-[30rem] rounded-full bg-belsue-100/25"
-      />
+      {/* Formas de fondo, muy tenues: dan color y movimiento sin restar
+          legibilidad ni competir con las tarjetas. Los desfases negativos
+          arrancan cada una en un punto distinto de su recorrido, para que no
+          se muevan todas a la vez. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="animate-drift absolute -right-32 -top-40 h-[28rem] w-[28rem] rounded-full bg-belsue-100/40 blur-[2px]" />
+        <div
+          style={{ animationDelay: "-13s" }}
+          className="animate-drift absolute -bottom-48 -left-40 h-[30rem] w-[30rem] rounded-full bg-belsue-100/25"
+        />
+
+        {/* Forma irregular que gira: al no ser redonda, parece deformarse. */}
+        <div className="animate-spin-slow absolute -left-24 top-1/3 h-72 w-72 rounded-[42%_58%_54%_46%/48%_44%_56%_52%] bg-belsue/[0.04]" />
+        <div
+          style={{ animationDelay: "-25s" }}
+          className="animate-spin-slow absolute -right-16 bottom-10 h-64 w-64 rounded-[55%_45%_40%_60%/50%_55%_45%_50%] bg-belsue/[0.05]"
+        />
+
+        {/* Puntos sueltos flotando. */}
+        <div className="animate-float absolute left-[12%] top-[18%] h-3 w-3 rounded-full bg-belsue/20" />
+        <div
+          style={{ animationDelay: "-4s" }}
+          className="animate-float absolute right-[18%] top-[26%] h-2 w-2 rounded-full bg-belsue/25"
+        />
+        <div
+          style={{ animationDelay: "-8s" }}
+          className="animate-float absolute left-[28%] bottom-[16%] h-2.5 w-2.5 rounded-full bg-belsue/15"
+        />
+        <div
+          style={{ animationDelay: "-6s" }}
+          className="animate-float absolute right-[30%] bottom-[24%] h-1.5 w-1.5 rounded-full bg-belsue/25"
+        />
+      </div>
 
       <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-12">
         <div className="animate-rise mb-10 text-center">

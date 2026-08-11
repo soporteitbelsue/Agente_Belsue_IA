@@ -127,20 +127,25 @@ export default function ChatWindow({
       // El historial (memoria de la conversación) se lee del ref de forma
       // síncrona, ANTES del setState, para no enviarlo vacío. Excluye el
       // mensaje de bienvenida sintético.
-      const history = messagesRef.current
-        .filter((m) => m !== welcomeMessage)
-        .map((m) => ({ role: m.role, content: m.content }));
+      const previous = messagesRef.current.filter((m) => m !== welcomeMessage);
+      const history = previous.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
 
-      let assistantIndex = -1;
-      setMessages((prev) => {
-        const next: ChatMessage[] = [
-          ...prev.filter((m) => m !== welcomeMessage),
-          { role: "user", content: text },
-          { role: "assistant", content: "" },
-        ];
-        assistantIndex = next.length - 1;
-        return next;
-      });
+      // La posición de la respuesta se calcula AQUÍ, no dentro del updater de
+      // setMessages: React no garantiza ejecutarlo en el acto, así que la
+      // variable seguía valiendo -1 al pasarla a setStreamingIndex y ninguna
+      // burbuja se daba por "en escritura" (ni puntos, ni cursor).
+      // Tras añadir la pregunta y la respuesta vacía, esta última queda la
+      // última de la lista.
+      const assistantIndex = previous.length + 1;
+
+      setMessages((prev) => [
+        ...prev.filter((m) => m !== welcomeMessage),
+        { role: "user", content: text },
+        { role: "assistant", content: "" },
+      ]);
 
       setStreamingIndex(assistantIndex);
 
