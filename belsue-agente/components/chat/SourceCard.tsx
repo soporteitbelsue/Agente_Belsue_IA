@@ -9,7 +9,17 @@ function truncate(text: string, max = 150): string {
   return `${clean.slice(0, max).trimEnd()}...`;
 }
 
-export default function SourceCard({ source }: { source: Source }) {
+export default function SourceCard({
+  source,
+  hideName = false,
+  hideDownload = false,
+}: {
+  source: Source;
+  /** true cuando el nombre del documento ya lo muestra el grupo que la agrupa. */
+  hideName?: boolean;
+  /** true en los fragmentos siguientes del mismo documento: un botón basta. */
+  hideDownload?: boolean;
+}) {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -67,10 +77,12 @@ export default function SourceCard({ source }: { source: Source }) {
         className="w-full rounded-md border border-gray-200 bg-white p-3 text-left text-xs shadow-sm transition hover:border-belsue/40 hover:shadow"
       >
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-          <span className="font-semibold text-gray-800">
-            {source.documentName}
-          </span>
-          <Badges />
+          {!hideName && (
+            <span className="font-semibold text-gray-800">
+              {source.documentName}
+            </span>
+          )}
+          {!hideName && <Badges />}
           <span className="ml-auto whitespace-nowrap text-gray-400">
             {Math.round(source.similarity * 100)}%
           </span>
@@ -81,7 +93,7 @@ export default function SourceCard({ source }: { source: Source }) {
         </span>
       </button>
 
-      {source.documentId && (
+      {source.documentId && !hideDownload && (
         <div className="mt-1 flex items-center gap-2 text-xs">
           <DownloadButton />
           {error && <span className="text-[11px] text-gray-400">{error}</span>}

@@ -6,13 +6,55 @@ interface Props {
   onClose?: () => void;
 }
 
+interface DocumentGroup {
+  key: string;
+  name: string;
+  fragments: Source[];
+}
+
+/**
+ * Agrupa los fragmentos por documento conservando el orden de relevancia (el
+ * documento con el mejor fragmento va primero). Una respuesta suele apoyarse
+ * en varios trozos del mismo documento, y listarlos sueltos daba la impresión
+ * de haber consultado muchas fuentes distintas cuando era una sola.
+ */
+function groupByDocument(sources: Source[]): DocumentGroup[] {
+  const groups = new Map<string, DocumentGroup>();
+  for (const source of sources) {
+    const key = source.documentId ?? source.documentName;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.fragments.push(source);
+    } else {
+      groups.set(key, {
+        key,
+        name: source.documentName,
+        fragments: [source],
+      });
+    }
+  }
+  return [...groups.values()];
+}
+
 export default function SourcesPanel({ sources, onClose }: Props) {
+  const groups = sources ? groupByDocument(sources) : [];
+
   return (
     <div className="flex h-full flex-col bg-[var(--color-background-secondary)]">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-        <h2 className="text-sm font-semibold text-gray-700">
-          Fuentes consultadas
-        </h2>
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700">
+            Fuentes consultadas
+          </h2>
+          {groups.length > 0 && (
+            <p className="text-xs text-gray-400">
+              {groups.length}{" "}
+              {groups.length === 1 ? "documento" : "documentos"} ·{" "}
+              {sources!.length}{" "}
+              {sources!.length === 1 ? "fragmento" : "fragmentos"}
+            </p>
+          )}
+        </div>
         {onClose && (
           <button
             onClick={onClose}
@@ -27,10 +69,30 @@ export default function SourcesPanel({ sources, onClose }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
-        {sources && sources.length > 0 ? (
-          <div className="space-y-2">
-            {sources.map((source, i) => (
-              <SourceCard key={i} source={source} />
+        {groups.length > 0 ? (
+          <div className="space-y-4">
+            {groups.map((group) => (
+              <div key={group.key}>
+                {group.fragments.length > 1 && (
+                  <p className="mb-1.5 px-0.5 text-xs font-medium text-gray-500">
+                    {group.name}
+                    <span className="ml-1 font-normal text-gray-400">
+                      · {group.fragments.length} fragmentos
+                    </span>
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {group.fragments.map((source, i) => (
+                    <SourceCard
+                      key={`${group.key}-${i}`}
+                      source={source}
+                      // El nombre ya va en la cabecera del grupo.
+                      hideName={group.fragments.length > 1}
+                      hideDownload={i > 0}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         ) : (

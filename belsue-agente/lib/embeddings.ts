@@ -114,6 +114,24 @@ async function fetchDocMeta(documentId: string): Promise<DocMeta | null> {
   return data as DocMeta | null;
 }
 
+/**
+ * Elimina fragmentos con texto idéntico, conservando el primero.
+ *
+ * Hay documentos que repiten su contenido (p. ej. un PDF de 10 páginas que en
+ * realidad son las mismas 2 repetidas 5 veces). Indexar las copias no aporta
+ * nada: gasta embeddings y, sobre todo, llena las 8 plazas de la búsqueda con
+ * el mismo texto, dejando fuera otros documentos que sí sumarían.
+ */
+function dropDuplicates(chunks: string[]): string[] {
+  const seen = new Set<string>();
+  return chunks.filter((c) => {
+    const key = c.trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function storeTextAsChunks(
   documentId: string,
   text: string,
@@ -126,7 +144,7 @@ async function storeTextAsChunks(
   // pero el contenido no, los pasos quedaban huérfanos y no se recuperaban.)
   const header = buildMetadataHeader(await fetchDocMeta(documentId));
   const fullText = header ? `${header}\n\n${text}` : text;
-  const chunks = chunkText(fullText);
+  const chunks = dropDuplicates(chunkText(fullText));
   if (chunks.length === 0) {
     throw new Error("No se pudo extraer texto del documento.");
   }
