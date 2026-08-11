@@ -24,6 +24,31 @@ function initials(name: string): string {
 /** Páginas que pertenecen a un portal pero reciben el ámbito por query param. */
 const SCOPED_PAGES = ["/documentos", "/conocimiento"];
 
+/** Pestaña de la barra superior. La activa va en blanco sobre el granate. */
+function NavTab({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+        active
+          ? "bg-white text-belsue shadow-sm"
+          : "text-white/90 hover:bg-white/15 hover:text-white"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
 function HeaderInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -67,41 +92,43 @@ function HeaderInner() {
 
         {user ? (
           <div className="flex items-center gap-3">
-            {/* Navegación interna del portal en el que estás. */}
-            {portal && (
-              <>
-                {portal.extraLinks?.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="hidden text-sm text-white/90 hover:text-white sm:inline"
+            {/* Navegación del portal, en pestañas: se ve dónde estás. */}
+            <nav className="hidden items-center gap-1 md:flex">
+              {portal && (
+                <>
+                  <NavTab href={portal.path} active={pathname === portal.path}>
+                    Chat
+                  </NavTab>
+                  {portal.extraLinks?.map((link) => (
+                    <NavTab
+                      key={link.href}
+                      href={link.href}
+                      active={pathname.startsWith(link.href)}
+                    >
+                      {link.label}
+                    </NavTab>
+                  ))}
+                  <NavTab
+                    href={`/documentos?scope=${portal.id}`}
+                    active={pathname.startsWith("/documentos")}
                   >
-                    {link.label}
-                  </Link>
-                ))}
-                <Link
-                  href={`/documentos?scope=${portal.id}`}
-                  className="hidden text-sm text-white/90 hover:text-white sm:inline"
-                >
-                  Documentos
-                </Link>
-                <Link
-                  href={`/conocimiento?scope=${portal.id}`}
-                  className="hidden text-sm text-white/90 hover:text-white sm:inline"
-                >
-                  Conocimiento
-                </Link>
-              </>
-            )}
+                    Documentos
+                  </NavTab>
+                  <NavTab
+                    href={`/conocimiento?scope=${portal.id}`}
+                    active={pathname.startsWith("/conocimiento")}
+                  >
+                    Conocimiento
+                  </NavTab>
+                </>
+              )}
 
-            {user.role === "admin" && !inAdmin && (
-              <Link
-                href="/admin"
-                className="hidden text-sm text-white/90 hover:text-white sm:inline"
-              >
-                Administración
-              </Link>
-            )}
+              {user.role === "admin" && (
+                <NavTab href="/admin" active={inAdmin}>
+                  Administración
+                </NavTab>
+              )}
+            </nav>
 
             {/* Volver al selector de portales. */}
             {pathname !== "/" && (

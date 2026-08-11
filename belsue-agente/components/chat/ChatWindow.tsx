@@ -40,7 +40,9 @@ export default function ChatWindow({
   const lastQueryRef = useRef<string | null>(null);
   // Mensaje cuyas fuentes están "fijadas" en el panel (null = seguir la última).
   const [pinnedIndex, setPinnedIndex] = useState<number | null>(null);
-  const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
+  // Panel de fuentes plegado por defecto: se abre cuando se quiere comprobar
+  // de dónde sale una respuesta, no antes.
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   // Id de la conversación activa en este panel (puede crearse al enviar).
   const currentIdRef = useRef<string | null>(conversationId ?? null);
   // Espejo siempre actualizado de los mensajes: permite leer el historial de
@@ -317,33 +319,56 @@ export default function ChatWindow({
       ? (messages[activeSourceIndex]?.sources ?? null)
       : null;
 
+  const sourceCount = displayedSources?.length ?? 0;
+
   return (
     <div className="flex h-full min-h-0">
       {/* Columna del chat */}
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4">
-          <div className="flex-1 space-y-5 overflow-y-auto py-6">
+        {/* El panel de fuentes se abre y se cierra: en reposo, la conversación
+            se lleva todo el ancho, que es lo que se lee. */}
+        <div className="flex justify-end px-4 pt-3">
+          <button
+            onClick={() => setSourcesOpen((v) => !v)}
+            aria-expanded={sourcesOpen}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm transition ${
+              sourcesOpen
+                ? "border-belsue/40 bg-belsue/10 text-belsue"
+                : "border-gray-200 bg-white text-gray-500 hover:border-belsue/40 hover:text-belsue"
+            }`}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+            Fuentes ({sourceCount})
+          </button>
+        </div>
+
+        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4">
+          <div className="flex-1 space-y-5 overflow-y-auto py-4">
             {messages.map((m, i) => (
-              <MessageBubble
-                key={i}
-                message={m}
-                isStreaming={streamingIndex === i}
-                sourcesActive={activeSourceIndex === i}
-                onShowSources={() => {
-                  setPinnedIndex(i);
-                  setSourcesDrawerOpen(true);
-                }}
-                onFeedback={submitFeedback}
-              />
+              <div key={i} className="animate-rise">
+                <MessageBubble
+                  message={m}
+                  isStreaming={streamingIndex === i}
+                  sourcesActive={activeSourceIndex === i}
+                  onShowSources={() => {
+                    setPinnedIndex(i);
+                    setSourcesOpen(true);
+                  }}
+                  onFeedback={submitFeedback}
+                />
+              </div>
             ))}
 
             {showSuggestions && (
               <div className="flex flex-wrap gap-2 pt-2">
-                {config.suggestions.map((s) => (
+                {config.suggestions.map((s, i) => (
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}
-                    className="rounded-full border border-belsue/30 bg-belsue/5 px-3 py-1.5 text-sm text-belsue transition hover:bg-belsue/10"
+                    style={{ animationDelay: `${0.12 + i * 0.07}s` }}
+                    className="animate-rise rounded-full border border-belsue/30 bg-belsue/5 px-3 py-1.5 text-sm text-belsue transition hover:bg-belsue/10 hover:shadow-sm"
                   >
                     {s}
                   </button>
@@ -391,22 +416,27 @@ export default function ChatWindow({
         </div>
       </div>
 
-      {/* Panel de fuentes (margen derecho, desktop) */}
-      <aside className="hidden w-80 shrink-0 border-l border-gray-200 lg:block">
-        <SourcesPanel sources={displayedSources} />
-      </aside>
+      {/* Panel de fuentes: al margen en pantallas grandes… */}
+      {sourcesOpen && (
+        <aside className="animate-slide-in hidden w-80 shrink-0 border-l border-gray-200 lg:block">
+          <SourcesPanel
+            sources={displayedSources}
+            onClose={() => setSourcesOpen(false)}
+          />
+        </aside>
+      )}
 
-      {/* Panel de fuentes como drawer (móvil/tablet) */}
-      {sourcesDrawerOpen && (
+      {/* …y como cajón superpuesto en las pequeñas. */}
+      {sourcesOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
             className="absolute inset-0 bg-black/40"
-            onClick={() => setSourcesDrawerOpen(false)}
+            onClick={() => setSourcesOpen(false)}
           />
-          <aside className="absolute right-0 top-0 h-full w-[85%] max-w-[340px] border-l border-gray-200 shadow-xl">
+          <aside className="animate-slide-in absolute right-0 top-0 h-full w-[85%] max-w-[340px] border-l border-gray-200 shadow-xl">
             <SourcesPanel
               sources={displayedSources}
-              onClose={() => setSourcesDrawerOpen(false)}
+              onClose={() => setSourcesOpen(false)}
             />
           </aside>
         </div>

@@ -147,8 +147,12 @@ export default function ConversationSidebar({
             <p className="text-sm">Empieza tu primera consulta</p>
           </div>
         ) : (
-          groups.map((group) => (
-            <div key={group.label} className="mb-3">
+          groups.map((group, gi) => (
+            <div
+              key={group.label}
+              className="animate-rise mb-3"
+              style={{ animationDelay: `${gi * 0.06}s` }}
+            >
               <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
                 {group.label}
               </p>

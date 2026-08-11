@@ -58,7 +58,7 @@ export default function SourcesPanel({ sources, onClose }: Props) {
         {onClose && (
           <button
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 lg:hidden"
+            className="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
             aria-label="Cerrar fuentes"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
