@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/conversations";
+import { requireAdmin } from "@/lib/auth";
 import { AGENT_SCOPES, parseScope } from "@/lib/scopes";
 
 export const runtime = "nodejs";
@@ -81,8 +82,15 @@ const createSchema = z.object({
   scope: z.enum(AGENT_SCOPES).optional().default("procedimientos"),
 });
 
-/** POST /api/courses — crea un curso vacío. */
+/**
+ * POST /api/courses — crea un curso vacío. Solo administración: el temario es
+ * material oficial, a diferencia de las notas de conocimiento, que aporta
+ * cualquiera.
+ */
 export async function POST(req: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });

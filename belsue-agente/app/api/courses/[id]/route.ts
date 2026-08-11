@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/conversations";
+import { requireAdmin } from "@/lib/auth";
 import { parseScope } from "@/lib/scopes";
 import type { FileType } from "@/types";
 
@@ -103,15 +104,13 @@ const updateSchema = z
     message: "No hay cambios que guardar.",
   });
 
-/** PATCH /api/courses/{id} — renombra o redescribe el curso. */
+/** PATCH /api/courses/{id} — renombra o redescribe el curso. Solo admin. */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  }
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
 
   let body: z.infer<typeof updateSchema>;
   try {
@@ -153,16 +152,14 @@ export async function PATCH(
 /**
  * DELETE /api/courses/{id} — borra el curso y sus lecciones. Los documentos NO
  * se borran: siguen disponibles en el portal, solo dejan de estar organizados
- * como curso.
+ * como curso. Solo admin.
  */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  }
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
 
   const supabase = supabaseServer();
   const { error } = await supabase.from("courses").delete().eq("id", params.id);

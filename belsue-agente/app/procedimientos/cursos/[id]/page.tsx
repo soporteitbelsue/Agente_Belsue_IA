@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import LessonForm from "@/components/cursos/LessonForm";
 import type { CourseWithLessons, Lesson } from "@/types";
 
@@ -25,6 +26,10 @@ function formatBytes(bytes: number): string {
 
 export default function CursoPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  // El temario lo mantiene administración; el resto del equipo lo sigue y
+  // marca sus lecciones como vistas.
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const [course, setCourse] = useState<CourseWithLessons | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -270,16 +275,18 @@ export default function CursoPage({ params }: { params: { id: string } }) {
                 </p>
               )}
             </div>
-            <button
-              onClick={() => {
-                setEditTitle(course.title);
-                setEditDescription(course.description ?? "");
-                setEditing(true);
-              }}
-              className="shrink-0 text-sm font-medium text-belsue hover:underline"
-            >
-              Editar
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setEditTitle(course.title);
+                  setEditDescription(course.description ?? "");
+                  setEditing(true);
+                }}
+                className="shrink-0 text-sm font-medium text-belsue hover:underline"
+              >
+                Editar
+              </button>
+            )}
           </div>
         )}
 
@@ -383,6 +390,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
                     {openingId === lesson.id ? "Abriendo…" : "Descargar material"}
                   </button>
                 )}
+                {isAdmin && (
                 <span className="ml-auto flex items-center gap-1.5">
                   {/* Reordenar: el orden de las lecciones es el del curso. */}
                   <button
@@ -415,6 +423,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
                     Quitar
                   </button>
                 </span>
+                )}
               </div>
 
               {/* Visor incrustado: la lección se lee sin salir de la página. */}
@@ -432,7 +441,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
         ))}
       </ol>
 
-      {adding ? (
+      {!isAdmin ? null : adding ? (
         <LessonForm
           courseId={params.id}
           onAdded={() => {
@@ -453,7 +462,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
         </button>
       )}
 
-      <div className="border-t border-gray-100 pt-4">
+      <div className={isAdmin ? "border-t border-gray-100 pt-4" : "hidden"}>
         {confirmDelete ? (
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-600">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
-import { getSessionUserId } from "@/lib/conversations";
+import { requireAdmin } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -16,15 +16,13 @@ const updateSchema = z
     message: "No hay cambios que guardar.",
   });
 
-/** PATCH /api/lessons/{id} — renombra o reordena una lección. */
+/** PATCH /api/lessons/{id} — renombra o reordena una lección. Solo admin. */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  }
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
 
   let body: z.infer<typeof updateSchema>;
   try {
@@ -66,16 +64,15 @@ export async function PATCH(
 
 /**
  * DELETE /api/lessons/{id} — saca la lección del curso. El documento sigue
- * existiendo (y consultable por el agente); solo deja de formar parte del curso.
+ * existiendo (y consultable por el agente); solo deja de formar parte del
+ * curso. Solo admin.
  */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  }
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
 
   const supabase = supabaseServer();
   const { error } = await supabase.from("lessons").delete().eq("id", params.id);

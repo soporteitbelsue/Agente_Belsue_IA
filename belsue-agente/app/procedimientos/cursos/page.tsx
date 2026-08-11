@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import type { CourseSummary } from "@/types";
 
 const SCOPE = "procedimientos";
@@ -31,6 +32,10 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
 }
 
 export default function CursosPage() {
+  // El temario lo mantiene administración; el resto del equipo lo sigue.
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
+
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +107,7 @@ export default function CursosPage() {
             de este material y puede remitirte a la lección donde se explica.
           </p>
         </div>
-        {!creating && (
+        {isAdmin && !creating && (
           <button
             onClick={() => setCreating(true)}
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-belsue px-4 py-2 text-sm font-medium text-white transition hover:bg-belsue-700"
@@ -176,7 +181,9 @@ export default function CursosPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
           </svg>
           <p className="text-sm text-gray-500">
-            Aún no hay cursos. Crea el primero y añádele sus lecciones.
+            {isAdmin
+              ? "Aún no hay cursos. Crea el primero y añádele sus lecciones."
+              : "Aún no hay cursos publicados."}
           </p>
         </div>
       )}

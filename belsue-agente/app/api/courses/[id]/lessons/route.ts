@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
-import { getSessionUserId } from "@/lib/conversations";
+import { requireAdmin } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -18,15 +18,15 @@ const createSchema = z.object({
  * Se llama ANTES de indexar el documento (`/api/documents/{id}/process`): así
  * la cabecera que se indexa ya nombra el curso y la lección, y no hay que
  * volver a generar los embeddings.
+ *
+ * Solo admin, igual que el resto del temario.
  */
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const userId = await getSessionUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  }
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
 
   let body: z.infer<typeof createSchema>;
   try {
