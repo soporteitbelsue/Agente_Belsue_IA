@@ -3,7 +3,11 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import UploadForm from "@/components/admin/UploadForm";
+import DocumentMetaForm, {
+  type EditableDocument,
+} from "@/components/admin/DocumentMetaForm";
 import { TableSkeleton } from "@/components/Skeleton";
 import {
   CATEGORY_BADGE,
@@ -45,6 +49,11 @@ function DocumentosContent() {
   const [search, setSearch] = useState("");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  // Corregir los datos de un documento es cosa de administración (la API solo
+  // se lo permite a admin); aquí el botón se muestra donde se ve el documento.
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
+  const [editTarget, setEditTarget] = useState<EditableDocument | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -141,6 +150,31 @@ function DocumentosContent() {
         </div>
       )}
 
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+          <div className="my-8 w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+            <div className="mb-2 flex justify-end">
+              <button
+                onClick={() => setEditTarget(null)}
+                aria-label="Cerrar"
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <DocumentMetaForm
+              doc={editTarget}
+              onSaved={() => {
+                load();
+                setTimeout(() => setEditTarget(null), 1000);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
           value={search}
@@ -214,25 +248,45 @@ function DocumentosContent() {
                     {formatBytes(d.file_size)}
                   </td>
                   <td className="px-4 py-2">
-                    {d.downloadable ? (
-                      <button
-                        onClick={() => download(d)}
-                        disabled={downloadingId === d.id}
-                        className="inline-flex items-center gap-1 text-sm font-medium text-belsue hover:underline disabled:opacity-50"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                        </svg>
-                        {downloadingId === d.id ? "Abriendo…" : "Descargar"}
-                      </button>
-                    ) : (
-                      <span
-                        className="text-xs text-gray-400"
-                        title="Documento antiguo: solo está indexado, sin archivo original"
-                      >
-                        No disponible
-                      </span>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {d.downloadable ? (
+                        <button
+                          onClick={() => download(d)}
+                          disabled={downloadingId === d.id}
+                          className="inline-flex items-center gap-1 text-sm font-medium text-belsue hover:underline disabled:opacity-50"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                          </svg>
+                          {downloadingId === d.id ? "Abriendo…" : "Descargar"}
+                        </button>
+                      ) : (
+                        <span
+                          className="text-xs text-gray-400"
+                          title="Documento antiguo: solo está indexado, sin archivo original"
+                        >
+                          No disponible
+                        </span>
+                      )}
+
+                      {isAdmin && (
+                        <button
+                          onClick={() =>
+                            setEditTarget({
+                              id: d.id,
+                              name: d.name,
+                              description: d.description,
+                              company: d.company,
+                              category: d.category,
+                              scopes: d.scopes,
+                            })
+                          }
+                          className="text-sm font-medium text-gray-500 hover:text-belsue hover:underline"
+                        >
+                          Editar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
