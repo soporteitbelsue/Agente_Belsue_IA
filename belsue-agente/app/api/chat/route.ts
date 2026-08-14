@@ -42,6 +42,39 @@ const bodySchema = z.object({
 const NO_ANSWER_RE =
   /no\s+(?:encuentro|dispongo\s+de|tengo|hay|consta|aparece|figura|puedo\s+(?:encontrar|ofrecer|proporcionar|dar))\b[\s\S]{0,60}?(?:informaci|dato|document|nota|belsu)/i;
 
+/** Longitud a partir de la cual un mensaje se busca por sí solo. */
+const SHORT_MESSAGE = 80;
+
+/** Fragmentos que se arrastran de la respuesta anterior. */
+const CARRIED_SOURCES = 4;
+
+/**
+ * Construye la consulta con la que se buscan los documentos.
+ *
+ * Los mensajes cortos suelen ser continuaciones que no se sostienen solas
+ * ("Rellenarla contigo", "sí, el segundo", "Juan Pérez, 45 años"): buscadas
+ * tal cual no se parecen a ningún documento y el agente acaba diciendo que no
+ * encuentra algo que sí tiene. En esos casos se les añade lo último que
+ * preguntó el usuario, que es lo que les da sentido.
+ *
+ * Las preguntas largas se buscan tal cual: ahí añadir contexto anterior
+ * emborronaría la búsqueda en vez de afinarla.
+ */
+function buildSearchQuery(
+  query: string,
+  messages: { role: "user" | "assistant"; content: string }[],
+): string {
+  if (query.trim().length > SHORT_MESSAGE) return query;
+
+  const previousUser = messages
+    .filter((m) => m.role === "user")
+    .slice(-2)
+    .map((m) => m.content.trim())
+    .filter(Boolean);
+
+  return [...previousUser, query].join("\n");
+}
+
 /**
  * Formatea los chunks recuperados como bloque de contexto para el prompt.
  * La etiqueta del segundo campo depende del ámbito ("Compañía" en seguros,
@@ -119,9 +152,42 @@ export async function POST(req: NextRequest) {
   // 3. Recuperar chunks del ámbito y construir su system prompt.
   let sources: Source[] = [];
   try {
-    sources = await retrieveRelevantChunks(query, 8, scope);
+    sources = await retrieveRelevantChunks(
+      buildSearchQuery(query, messages),
+      8,
+      scope,
+    );
   } catch (err) {
     console.error("[chat] Error al recuperar chunks:", err);
+  }
+
+  // Arrastrar parte de los fragmentos de la respuesta anterior. Sin esto, una
+  // tarea de varios turnos (rellenar una plantilla campo a campo) pierde el
+  // documento en cuanto el usuario contesta con datos sueltos, que no se
+  // parecen a nada. Van detrás de los recién buscados, que mandan.
+  if (parsed.conversationId) {
+    try {
+      const { data: last } = await supabase
+        .from("messages")
+        .select("sources")
+        .eq("conversation_id", conversationId)
+        .eq("role", "assistant")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const previous = (last?.sources ?? []) as Source[];
+      const seen = new Set(sources.map((s) => s.content.trim()));
+      for (const source of previous) {
+        if (sources.length >= 8 + CARRIED_SOURCES) break;
+        const key = source.content.trim();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        sources.push(source);
+      }
+    } catch (err) {
+      console.error("[chat] Error al arrastrar fuentes anteriores:", err);
+    }
   }
 
   const systemPrompt = buildSystemPrompt(scope, buildContext(sources, scope));
