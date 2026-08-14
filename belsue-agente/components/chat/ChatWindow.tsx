@@ -9,6 +9,9 @@ import { useSources } from "./SourcesContext";
 
 const MAX_TEXTAREA_LINES = 4;
 
+/** Preferencia de cada persona sobre qué hace la tecla Enter. */
+const ENTER_SENDS_KEY = "belsue:enter-envia";
+
 interface Props {
   /** Pestaña del asistente: decide bienvenida, sugerencias y conocimiento. */
   scope?: AgentScope;
@@ -34,6 +37,23 @@ export default function ChatWindow({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Con Enter de salto de línea por defecto: al rellenar una ficha se
+  // contestan varias cosas en un mismo mensaje, y enviarlo a la primera línea
+  // corta la respuesta a medias.
+  const [enterSends, setEnterSends] = useState(false);
+
+  // La preferencia se lee en el navegador (no existe al renderizar en servidor).
+  useEffect(() => {
+    setEnterSends(window.localStorage.getItem(ENTER_SENDS_KEY) === "1");
+  }, []);
+
+  const toggleEnterSends = useCallback(() => {
+    setEnterSends((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(ENTER_SENDS_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -289,10 +309,20 @@ export default function ChatWindow({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key !== "Enter") return;
+
+    // Ctrl+Enter (o Cmd+Enter) envía siempre, sea cual sea la preferencia.
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      sendMessage(input);
+      return;
+    }
+
+    if (enterSends && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);
     }
+    // En caso contrario no hacemos nada: el textarea salta de línea solo.
   };
 
   const handleRetry = () => {
@@ -402,15 +432,20 @@ export default function ChatWindow({
 
           <form
             onSubmit={handleSubmit}
-            className="sticky bottom-0 flex items-end gap-2 border-t border-gray-200 bg-white py-3"
+            className="sticky bottom-0 flex flex-col gap-1 border-t border-gray-200 bg-white py-3"
           >
+            <div className="flex items-end gap-2">
             <textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={1}
-              placeholder="Escribe tu consulta… (Enter para enviar, Shift+Enter para nueva línea)"
+              placeholder={
+                enterSends
+                  ? "Escribe tu consulta… (Enter envía, Shift+Enter salta de línea)"
+                  : "Escribe tu consulta… (Enter salta de línea, Ctrl+Enter envía)"
+              }
               className="max-h-40 flex-1 resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm leading-5 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
               disabled={isLoading}
             />
@@ -421,6 +456,18 @@ export default function ChatWindow({
             >
               {isLoading ? "…" : "Enviar"}
             </button>
+            </div>
+
+            {/* Cada persona decide qué hace Enter; se recuerda en su navegador. */}
+            <label className="flex cursor-pointer select-none items-center gap-1.5 self-end pr-1 text-xs text-gray-400 transition hover:text-gray-600">
+              <input
+                type="checkbox"
+                checked={enterSends}
+                onChange={toggleEnterSends}
+                className="h-3 w-3 accent-belsue"
+              />
+              Enviar con Enter
+            </label>
           </form>
         </div>
       </div>
