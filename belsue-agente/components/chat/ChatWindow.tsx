@@ -356,6 +356,10 @@ export default function ChatWindow({
                 <MessageBubble
                   message={m}
                   isStreaming={streamingIndex === i}
+                  // Solo el último mensaje ofrece botones: los de mensajes
+                  // anteriores ya no vienen a cuento.
+                  showOptions={i === messages.length - 1 && !isLoading}
+                  onOption={sendMessage}
                   sourcesActive={activeSourceIndex === i}
                   onShowSources={() => {
                     setPinnedIndex(i);

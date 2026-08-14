@@ -1,10 +1,15 @@
 import type { ChatMessage } from "@/types";
+import { parseQuickReplies } from "@/lib/quickReplies";
 import Markdown from "./Markdown";
 import ThinkingDots from "./ThinkingDots";
 
 interface Props {
   message: ChatMessage;
   isStreaming?: boolean;
+  /** Muestra los botones que ofrezca el mensaje (solo en el último). */
+  showOptions?: boolean;
+  /** Envía la opción elegida como siguiente mensaje. */
+  onOption?: (option: string) => void;
   /** Se llama al pulsar el chip de fuentes (muestra el panel derecho). */
   onShowSources?: () => void;
   /** true si las fuentes de este mensaje son las activas en el panel. */
@@ -16,6 +21,8 @@ interface Props {
 export default function MessageBubble({
   message,
   isStreaming = false,
+  showOptions = false,
+  onOption,
   onShowSources,
   sourcesActive = false,
   onFeedback,
@@ -42,6 +49,11 @@ export default function MessageBubble({
   const canRate = !!message.id && !!onFeedback && !isStreaming;
   const fb = message.feedback ?? null;
 
+  // El marcador de los botones se quita SIEMPRE del texto, también en los
+  // mensajes antiguos, para que no asome en pantalla.
+  const { text, options } = parseQuickReplies(message.content);
+  const quickReplies = showOptions && !isStreaming ? options : [];
+
   return (
     <div className="flex justify-start">
       <div className="max-w-[80%] space-y-2">
@@ -50,7 +62,7 @@ export default function MessageBubble({
             <ThinkingDots />
           ) : (
             <>
-              <Markdown content={message.content} />
+              <Markdown content={text} />
               {isStreaming && <span className="streaming-cursor" aria-hidden />}
             </>
           )}
@@ -60,6 +72,22 @@ export default function MessageBubble({
             </p>
           )}
         </div>
+
+        {/* Elección ofrecida por el agente: un clic responde por ti. */}
+        {quickReplies.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {quickReplies.map((option, i) => (
+              <button
+                key={option}
+                onClick={() => onOption?.(option)}
+                style={{ animationDelay: `${i * 0.07}s` }}
+                className="animate-rise rounded-full border border-belsue bg-belsue px-3.5 py-1.5 text-sm font-medium text-white transition hover:bg-belsue-700 hover:shadow"
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        )}
 
         {documentCount > 0 && (
           <button
