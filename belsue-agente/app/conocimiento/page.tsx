@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import NoteForm, { type EditableNote } from "@/components/admin/NoteForm";
-import UploadForm from "@/components/admin/UploadForm";
+import AddKnowledgeModal from "@/components/admin/AddKnowledgeModal";
 import DocumentMetaForm, {
   type EditableDocument,
 } from "@/components/admin/DocumentMetaForm";
@@ -99,10 +99,7 @@ function ConocimientoContent() {
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
 
-  // Qué se está añadiendo: null (nada), "elegir", "nota" o "documento".
-  const [adding, setAdding] = useState<null | "elegir" | "nota" | "documento">(
-    null,
-  );
+  const [adding, setAdding] = useState(false);
   const [editNote, setEditNote] = useState<EditableNote | null>(null);
   const [editDoc, setEditDoc] = useState<EditableDocument | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
@@ -205,7 +202,7 @@ function ConocimientoContent() {
           </p>
         </div>
         <button
-          onClick={() => setAdding("elegir")}
+          onClick={() => setAdding(true)}
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-belsue px-4 py-2 text-sm font-medium text-white transition hover:bg-belsue-700"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -365,59 +362,12 @@ function ConocimientoContent() {
         ))}
       </div>
 
-      {/* Elegir qué se añade */}
-      {adding === "elegir" && (
-        <Modal onClose={() => setAdding(null)}>
-          <h2 className="text-lg font-semibold text-gray-800">
-            ¿Qué quieres añadir?
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Las dos cosas acaban igual: el agente las usa para responder.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <button
-              onClick={() => setAdding("nota")}
-              className="rounded-lg border border-gray-200 p-4 text-left transition hover:border-belsue/40 hover:shadow-sm"
-            >
-              <span className="block font-semibold text-gray-800">Una nota</span>
-              <span className="mt-1 block text-sm text-gray-500">
-                Lo escribes tú aquí mismo: una regla, un truco, cómo se hace
-                algo. Sin archivos.
-              </span>
-            </button>
-            <button
-              onClick={() => setAdding("documento")}
-              className="rounded-lg border border-gray-200 p-4 text-left transition hover:border-belsue/40 hover:shadow-sm"
-            >
-              <span className="block font-semibold text-gray-800">
-                Un documento
-              </span>
-              <span className="mt-1 block text-sm text-gray-500">
-                Subes un archivo (PDF, Word, PowerPoint o texto) y se indexa
-                entero.
-              </span>
-            </button>
-          </div>
-        </Modal>
-      )}
-
-      {adding === "nota" && (
-        <Modal onClose={() => setAdding(null)}>
-          <NoteForm
-            embedded
-            scope={scope}
-            onSaved={() => {
-              load();
-              setTimeout(() => setAdding(null), 1000);
-            }}
-          />
-        </Modal>
-      )}
-
-      {adding === "documento" && (
-        <Modal onClose={() => setAdding(null)}>
-          <UploadForm scope={scope} />
-        </Modal>
+      {adding && (
+        <AddKnowledgeModal
+          scope={scope}
+          onClose={() => setAdding(false)}
+          onSaved={load}
+        />
       )}
 
       {editNote && (
