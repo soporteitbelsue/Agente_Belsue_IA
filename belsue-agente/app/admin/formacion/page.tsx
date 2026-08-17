@@ -62,7 +62,7 @@ export default function FormacionPage() {
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 overflow-y-auto px-4 py-6">
+    <div className="mx-auto w-full max-w-[1700px] space-y-6 overflow-y-auto px-4 py-6 sm:px-6">
       <div>
         <Link
           href="/"

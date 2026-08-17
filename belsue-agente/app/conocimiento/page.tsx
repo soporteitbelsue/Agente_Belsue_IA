@@ -187,7 +187,7 @@ function ConocimientoContent() {
     : items;
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 overflow-y-auto px-4 py-6">
+    <div className="mx-auto w-full max-w-[1700px] space-y-6 overflow-y-auto px-4 py-6 sm:px-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Link
@@ -263,7 +263,7 @@ function ConocimientoContent() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {filtered.map((item) => (
           <div
             key={item.id}
@@ -294,7 +294,9 @@ function ConocimientoContent() {
             </div>
 
             {item.content ? (
-              <p className="whitespace-pre-wrap text-sm text-gray-600">
+              // Recortado a seis líneas: con varias columnas, una nota larga
+              // estiraba toda la fila. El texto completo está al editarla.
+              <p className="line-clamp-6 whitespace-pre-wrap text-sm text-gray-600">
                 {item.content}
               </p>
             ) : (

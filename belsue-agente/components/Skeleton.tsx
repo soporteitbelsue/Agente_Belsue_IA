@@ -24,9 +24,10 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
 }
 
 /** Tarjetas en rejilla (Conocimiento). */
-export function CardsSkeleton({ cards = 4 }: { cards?: number }) {
+export function CardsSkeleton({ cards = 8 }: { cards?: number }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    // Mismas columnas que el listado real, para que no dé el salto al cargar.
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {Array.from({ length: cards }).map((_, i) => (
         <div
           key={i}
