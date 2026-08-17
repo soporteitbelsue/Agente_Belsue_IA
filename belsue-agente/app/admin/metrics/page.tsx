@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import AdminTabs from "@/components/admin/AdminTabs";
 import MetricsChart from "@/components/admin/MetricsChart";
 import type { DayMetrics, UserMetrics } from "@/types";
 
@@ -124,24 +125,7 @@ export default function MetricsPage() {
         </p>
       </div>
 
-      {/* Pestañas */}
-      <div className="flex gap-1 border-b border-gray-200">
-        <Link
-          href="/admin"
-          className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
-          Documentos
-        </Link>
-        <Link
-          href="/admin/usuarios"
-          className="border-b-2 border-transparent px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
-        >
-          Usuarios
-        </Link>
-        <span className="border-b-2 border-belsue px-4 py-2 text-sm font-semibold text-belsue">
-          Métricas
-        </span>
-      </div>
+      <AdminTabs active="/admin/metrics" />
 
       {loading && <p className="text-sm text-gray-400">Cargando métricas…</p>}
       {error && <p className="text-sm text-red-500">{error}</p>}

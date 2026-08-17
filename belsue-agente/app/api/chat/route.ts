@@ -258,6 +258,20 @@ export async function POST(req: NextRequest) {
           (sources.length === 0 || NO_ANSWER_RE.test(answer));
         if (noSupo) {
           const scopeTitle = scopeConfig(scope).title;
+
+          // Se guarda además del correo: en Administración se ven juntas y se
+          // sabe qué material falta y qué dudas se repiten.
+          try {
+            await supabase.from("knowledge_gaps").insert({
+              user_id: userId,
+              scope,
+              question: query,
+              answer: answer.slice(0, 1000),
+            });
+          } catch (gapErr) {
+            console.error("[chat] Error al registrar el hueco:", gapErr);
+          }
+
           await sendNotification(
             `⚠️ ${scopeTitle} no supo responder una consulta`,
             `<p>El asistente (pestaña <b>${escapeHtml(
