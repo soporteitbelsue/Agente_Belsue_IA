@@ -122,12 +122,6 @@ function HeaderInner() {
                     </NavTab>
                   ))}
                   <NavTab
-                    href={`/documentos?scope=${portal.id}`}
-                    active={pathname.startsWith("/documentos")}
-                  >
-                    Documentos
-                  </NavTab>
-                  <NavTab
                     href={`/conocimiento?scope=${portal.id}`}
                     active={pathname.startsWith("/conocimiento")}
                   >

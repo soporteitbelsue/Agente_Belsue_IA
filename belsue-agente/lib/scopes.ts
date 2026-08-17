@@ -93,8 +93,6 @@ export interface ScopeConfig {
   };
   /** Textos de la página de conocimiento del equipo. */
   knowledge: { title: string; description: string };
-  /** Texto de la página de documentos. */
-  documentsDescription: string;
   /** Secciones propias del portal, además de documentos y conocimiento. */
   extraLinks?: { label: string; href: string }[];
 }
@@ -144,10 +142,8 @@ const SEGUROS: ScopeConfig = {
   knowledge: {
     title: "Conocimiento del equipo",
     description:
-      "Reglas y recomendaciones sobre producto y compañías que aporta todo el equipo. El agente las usa para responder. Cualquiera puede añadir.",
+      "Notas y documentos sobre producto y compañías. El agente los usa para responder. Cualquiera puede añadir.",
   },
-  documentsDescription:
-    "Consulta, sube y descarga los documentos y condicionados del equipo.",
 };
 
 const PROCEDIMIENTOS: ScopeConfig = {
@@ -197,10 +193,8 @@ const PROCEDIMIENTOS: ScopeConfig = {
   knowledge: {
     title: "Procedimientos del equipo",
     description:
-      "Cómo nos organizamos y cómo se hace cada cosa en la oficina. El agente lo usa para responder. Cualquiera puede añadir.",
+      "Cómo nos organizamos y cómo se hace cada cosa en la oficina, en notas y documentos. El agente los usa para responder. Cualquiera puede añadir.",
   },
-  documentsDescription:
-    "Manuales, protocolos y plantillas internas de la oficina.",
   extraLinks: [{ label: "Cursos", href: "/procedimientos/cursos" }],
 };
 
