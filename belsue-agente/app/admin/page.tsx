@@ -1,6 +1,4 @@
 import Link from "next/link";
-import UploadForm from "@/components/admin/UploadForm";
-import NoteForm from "@/components/admin/NoteForm";
 import DocumentList from "@/components/admin/DocumentList";
 
 export default function AdminPage() {
@@ -14,19 +12,20 @@ export default function AdminPage() {
           ← Volver a los portales
         </Link>
         <h1 className="text-2xl font-bold text-gray-800">
-          Administración de documentos
+          Supervisión del conocimiento
         </h1>
         <p className="text-sm text-gray-500">
-          Sube pólizas y documentación, o añade notas de conocimiento. Aquí ves
-          el material de los dos portales: cada documento indica a cuál
-          pertenece, y es el portal quien decide dónde se usa.
+          El material de los dos portales a la vez, con el número de fragmentos
+          indexados de cada uno: es donde se ve si algo se ha quedado sin
+          procesar. Para añadir notas o documentos, entra en el portal que
+          corresponda y usa <b>Conocimiento</b>.
         </p>
       </div>
 
       {/* Pestañas */}
       <div className="flex gap-1 border-b border-gray-200">
         <span className="border-b-2 border-belsue px-4 py-2 text-sm font-semibold text-belsue">
-          Documentos
+          Conocimiento
         </span>
         <Link
           href="/admin/usuarios"
@@ -42,8 +41,6 @@ export default function AdminPage() {
         </Link>
       </div>
 
-      <UploadForm />
-      <NoteForm />
       <DocumentList />
     </div>
   );
