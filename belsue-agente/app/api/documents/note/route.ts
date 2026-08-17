@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { getServerSession } from "next-auth";
 import { supabaseServer } from "@/lib/supabase";
+import { authOptions } from "@/lib/authOptions";
 import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreText } from "@/lib/embeddings";
 import { sendNotification, escapeHtml } from "@/lib/email";
@@ -37,6 +39,7 @@ interface NoteRow {
   company: string | null;
   category: string | null;
   scopes: string[] | null;
+  created_by: string | null;
   created_at: string;
   users: { name: string } | null;
 }
@@ -45,12 +48,17 @@ interface NoteRow {
  * GET /api/documents/note — lista las notas de conocimiento con su autor.
  * Abierto a cualquier usuario autenticado: todo el equipo puede consultar el
  * conocimiento aportado.
+ *
+ * Cada nota indica si quien consulta puede borrarla, en vez de devolver el id
+ * del autor y dejar que lo decida el navegador.
  */
 export async function GET(req: NextRequest) {
-  const userId = await getSessionUserId();
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
   if (!userId) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   }
+  const isAdmin = session.user.role === "admin";
 
   try {
     const supabase = supabaseServer();
@@ -61,7 +69,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from("documents")
       .select(
-        "id, name, content, company, category, scopes, created_at, users(name)",
+        "id, name, content, company, category, scopes, created_by, created_at, users(name)",
       )
       .eq("file_type", "nota")
       .contains("scopes", [scope])
@@ -85,6 +93,7 @@ export async function GET(req: NextRequest) {
       scopes: parseScopes(n.scopes),
       created_at: n.created_at,
       author: n.users?.name ?? null,
+      can_delete: isAdmin || n.created_by === userId,
     }));
 
     return NextResponse.json({ notes });

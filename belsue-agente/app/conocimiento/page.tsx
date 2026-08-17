@@ -24,6 +24,8 @@ interface Note {
   scopes: AgentScope[];
   created_at: string;
   author: string | null;
+  /** true si quien consulta puede borrarla (la escribió, o es admin). */
+  can_delete: boolean;
 }
 
 function ConocimientoContent() {
@@ -37,6 +39,8 @@ function ConocimientoContent() {
   const [category, setCategory] = useState("");
   const [search, setSearch] = useState("");
   const [editTarget, setEditTarget] = useState<EditableNote | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Note | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -65,6 +69,25 @@ function ConocimientoContent() {
   useEffect(() => {
     setCategory("");
   }, [scope]);
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/documents/note/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "No se pudo borrar la nota.");
+      setDeleteTarget(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo borrar.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const term = search.trim().toLowerCase();
   const filtered = term
@@ -183,10 +206,49 @@ function ConocimientoContent() {
               >
                 Editar
               </button>
+              {n.can_delete && (
+                <button
+                  onClick={() => setDeleteTarget(n)}
+                  title="Borrar esta nota"
+                  className="font-medium text-gray-400 hover:text-red-600 hover:underline"
+                >
+                  Borrar
+                </button>
+              )}
             </div>
           </div>
         ))}
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+            <h2 className="text-lg font-semibold text-gray-800">
+              ¿Borrar la nota?
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Se borrará <b>{deleteTarget.name}</b> y el agente dejará de
+              responder con ella. No se puede deshacer.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? "Borrando…" : "Borrar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de edición de nota (cualquier usuario) */}
       {editTarget && (

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { getServerSession } from "next-auth";
 import { supabaseServer } from "@/lib/supabase";
+import { authOptions } from "@/lib/authOptions";
 import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreText } from "@/lib/embeddings";
 import { AGENT_SCOPES, parseScopes, primaryScope } from "@/lib/scopes";
@@ -126,6 +128,64 @@ export async function PATCH(
     const message =
       procErr instanceof Error ? procErr.message : "Error al re-indexar.";
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}
+
+/**
+ * DELETE /api/documents/note/{id} — borra una nota de conocimiento.
+ *
+ * Puede borrarla quien la escribió (deshacer lo propio) y cualquier
+ * administrador. Editar sigue abierto a todo el equipo, pero borrar el aporte
+ * de otro no: eso destruye trabajo ajeno sin dejar rastro.
+ *
+ * Los fragmentos indexados caen en cascada. Las notas no tienen archivo, así
+ * que no hay nada que limpiar en Storage.
+ */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+  if (!userId) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
+
+  const supabase = supabaseServer();
+
+  const { data: note, error: findError } = await supabase
+    .from("documents")
+    .select("id, created_by")
+    .eq("id", params.id)
+    .eq("file_type", "nota")
+    .maybeSingle();
+
+  if (findError) {
+    return NextResponse.json({ error: findError.message }, { status: 500 });
+  }
+  if (!note) {
+    return NextResponse.json({ error: "Nota no encontrada." }, { status: 404 });
+  }
+
+  const isAdmin = session.user.role === "admin";
+  if (!isAdmin && note.created_by !== userId) {
+    return NextResponse.json(
+      { error: "Solo puedes borrar las notas que has escrito tú." },
+      { status: 403 },
+    );
+  }
+
+  const { error } = await supabase
+    .from("documents")
+    .delete()
+    .eq("id", params.id)
+    .eq("file_type", "nota");
+
+  if (error) {
+    console.error("[note] Error al borrar la nota:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
