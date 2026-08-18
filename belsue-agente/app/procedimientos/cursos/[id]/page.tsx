@@ -36,8 +36,12 @@ export default function CursoPage({ params }: { params: { id: string } }) {
   const [adding, setAdding] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // Lección abierta en el visor y su enlace firmado.
-  const [viewer, setViewer] = useState<{ id: string; url: string } | null>(null);
+  // Lección abierta en el visor a pantalla completa, con su enlace firmado.
+  const [viewer, setViewer] = useState<{
+    id: string;
+    url: string;
+    title: string;
+  } | null>(null);
   // Edición del título y la descripción del curso.
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -89,17 +93,17 @@ export default function CursoPage({ params }: { params: { id: string } }) {
    * vista, que es el gesto natural: si la estás leyendo, la has visto.
    */
   async function openMaterial(lesson: Lesson) {
-    if (viewer?.id === lesson.id) {
-      setViewer(null); // segundo clic: cerrar
-      return;
-    }
     setOpeningId(lesson.id);
     setError(null);
     try {
       const res = await fetch(`/api/documents/${lesson.document_id}/view`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "No se pudo abrir.");
-      setViewer({ id: lesson.id, url: data.url as string });
+      setViewer({
+        id: lesson.id,
+        url: data.url as string,
+        title: lesson.title,
+      });
       if (!lesson.viewed) await toggleViewed(lesson);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo abrir.");
@@ -196,6 +200,16 @@ export default function CursoPage({ params }: { params: { id: string } }) {
     await fetch(`/api/courses/${params.id}`, { method: "DELETE" });
     router.push("/procedimientos/cursos");
   }
+
+  // Escape cierra el visor, que es lo que espera cualquiera a pantalla completa.
+  useEffect(() => {
+    if (!viewer) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setViewer(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewer]);
 
   if (loading) {
     return <p className="p-6 text-sm text-gray-400">Cargando…</p>;
@@ -367,11 +381,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
                       disabled={openingId === lesson.id}
                       className="font-medium text-belsue hover:underline disabled:opacity-50"
                     >
-                      {openingId === lesson.id
-                        ? "Abriendo…"
-                        : viewer?.id === lesson.id
-                          ? "Cerrar lección"
-                          : "Ver lección"}
+                      {openingId === lesson.id ? "Abriendo…" : "Ver lección"}
                     </button>
                     <button
                       onClick={() => downloadMaterial(lesson)}
@@ -426,16 +436,6 @@ export default function CursoPage({ params }: { params: { id: string } }) {
                 )}
               </div>
 
-              {/* Visor incrustado: la lección se lee sin salir de la página. */}
-              {viewer?.id === lesson.id && (
-                <div className="mt-3 overflow-hidden rounded-md border border-gray-200">
-                  <iframe
-                    src={viewer.url}
-                    title={lesson.title}
-                    className="h-[70vh] w-full bg-gray-50"
-                  />
-                </div>
-              )}
             </div>
           </li>
         ))}
@@ -460,6 +460,68 @@ export default function CursoPage({ params }: { params: { id: string } }) {
           </svg>
           Añadir lección
         </button>
+      )}
+
+      {/* Visor a pantalla completa: una lección se lee, no se ojea en una
+          columna estrecha. Ocupa todo salvo su propia barra de título. */}
+      {viewer && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-gray-900">
+          <div className="flex items-center justify-between gap-3 px-4 py-2 text-white">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="truncate text-sm font-medium">
+                {viewer.title}
+              </span>
+              <span className="hidden shrink-0 text-xs text-white/50 sm:inline">
+                {course.title}
+              </span>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              {(() => {
+                const index = course.lessons.findIndex(
+                  (l) => l.id === viewer.id,
+                );
+                const previous = course.lessons[index - 1];
+                const next = course.lessons[index + 1];
+                return (
+                  <>
+                    <span className="hidden text-xs text-white/50 sm:inline">
+                      Lección {index + 1} de {course.lessons.length}
+                    </span>
+                    <button
+                      onClick={() => previous && openMaterial(previous)}
+                      disabled={!previous}
+                      className="rounded-md px-2 py-1 text-sm text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+                    >
+                      ← Anterior
+                    </button>
+                    <button
+                      onClick={() => next && openMaterial(next)}
+                      disabled={!next}
+                      className="rounded-md px-2 py-1 text-sm text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+                    >
+                      Siguiente →
+                    </button>
+                  </>
+                );
+              })()}
+
+              <button
+                onClick={() => setViewer(null)}
+                title="Cerrar (Esc)"
+                className="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/20"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+
+          <iframe
+            src={viewer.url}
+            title={viewer.title}
+            className="flex-1 w-full border-0 bg-white"
+          />
+        </div>
       )}
 
       <div className={isAdmin ? "border-t border-gray-100 pt-4" : "hidden"}>
