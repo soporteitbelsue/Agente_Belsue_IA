@@ -234,7 +234,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 overflow-y-auto px-4 py-6">
+    <div className="mx-auto w-full max-w-[1700px] space-y-6 overflow-y-auto px-4 py-6 sm:px-6">
       <div>
         <Link
           href="/procedimientos/cursos"
@@ -358,14 +358,20 @@ export default function CursoPage({ params }: { params: { id: string } }) {
               )}
             </button>
 
-            <div className="min-w-0 flex-1">
-              <h3 className="font-medium text-gray-800">{lesson.title}</h3>
-              {lesson.description && (
-                <p className="mt-0.5 text-sm text-gray-500">
-                  {lesson.description}
-                </p>
-              )}
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+            {/* En pantallas anchas, el texto a la izquierda y los botones a la
+                derecha: estirar una descripción a lo largo de todo el monitor
+                no la hace más legible, pero desperdiciar el hueco tampoco. */}
+            <div className="min-w-0 flex-1 lg:flex lg:items-start lg:gap-8">
+              <div className="min-w-0 max-w-3xl lg:flex-1">
+                <h3 className="font-medium text-gray-800">{lesson.title}</h3>
+                {lesson.description && (
+                  <p className="mt-0.5 text-sm text-gray-500">
+                    {lesson.description}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400 lg:mt-0 lg:shrink-0">
                 <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600">
                   {TYPE_LABEL[lesson.file_type] ?? lesson.file_type}
                 </span>

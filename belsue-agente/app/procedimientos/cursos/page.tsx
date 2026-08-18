@@ -92,7 +92,7 @@ export default function CursosPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 overflow-y-auto px-4 py-6">
+    <div className="mx-auto w-full max-w-[1700px] space-y-6 overflow-y-auto px-4 py-6 sm:px-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Link
@@ -188,7 +188,7 @@ export default function CursosPage() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {courses.map((course) => (
           <Link
             key={course.id}
