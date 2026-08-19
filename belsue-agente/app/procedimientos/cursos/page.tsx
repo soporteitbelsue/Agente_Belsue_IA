@@ -63,6 +63,24 @@ export default function CursosPage() {
     load();
   }, [load]);
 
+  /** Publica u oculta sin entrar al curso: se ve el efecto en el propio listado. */
+  async function togglePublished(course: CourseSummary) {
+    const published = !course.published;
+    setCourses((prev) =>
+      prev.map((c) => (c.id === course.id ? { ...c, published } : c)),
+    );
+    try {
+      const res = await fetch(`/api/courses/${course.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      load(); // si falla, se recupera el estado real
+    }
+  }
+
   async function createCourse(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
@@ -190,15 +208,18 @@ export default function CursosPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {courses.map((course) => (
-          <Link
+          <div
             key={course.id}
-            href={`/procedimientos/cursos/${course.id}`}
             className={`flex flex-col rounded-lg border bg-white p-4 shadow-sm transition hover:border-belsue/40 hover:shadow ${
               course.published
                 ? "border-gray-200"
                 : "border-dashed border-amber-300"
             }`}
           >
+            <Link
+              href={`/procedimientos/cursos/${course.id}`}
+              className="flex flex-1 flex-col"
+            >
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-semibold text-gray-800">{course.title}</h3>
               {!course.published && (
@@ -221,7 +242,22 @@ export default function CursosPage() {
                 total={course.lesson_count}
               />
             </div>
-          </Link>
+            </Link>
+
+            {/* Fuera del enlace: pulsarlo no debe abrir el curso. */}
+            {isAdmin && (
+              <button
+                onClick={() => togglePublished(course)}
+                className={`mt-3 w-full rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                  course.published
+                    ? "border-gray-300 text-gray-500 hover:border-amber-400 hover:text-amber-700"
+                    : "border-belsue bg-belsue text-white hover:bg-belsue-700"
+                }`}
+              >
+                {course.published ? "Ocultar al equipo" : "Publicar"}
+              </button>
+            )}
+          </div>
         ))}
       </div>
     </div>
