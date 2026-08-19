@@ -193,9 +193,23 @@ export default function CursosPage() {
           <Link
             key={course.id}
             href={`/procedimientos/cursos/${course.id}`}
-            className="flex flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-belsue/40 hover:shadow"
+            className={`flex flex-col rounded-lg border bg-white p-4 shadow-sm transition hover:border-belsue/40 hover:shadow ${
+              course.published
+                ? "border-gray-200"
+                : "border-dashed border-amber-300"
+            }`}
           >
-            <h3 className="font-semibold text-gray-800">{course.title}</h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-gray-800">{course.title}</h3>
+              {!course.published && (
+                <span
+                  title="Solo lo ves tú hasta que lo publiques"
+                  className="shrink-0 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                >
+                  Borrador
+                </span>
+              )}
+            </div>
             {course.description && (
               <p className="mt-1 line-clamp-2 text-sm text-gray-500">
                 {course.description}

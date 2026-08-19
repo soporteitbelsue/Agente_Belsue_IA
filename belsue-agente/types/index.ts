@@ -148,6 +148,8 @@ export interface Course {
   description: string | null;
   scope: AgentScope;
   position: number;
+  /** false mientras se prepara: solo lo ve administración. */
+  published: boolean;
   created_at: string;
 }
 

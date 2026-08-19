@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { getServerSession } from "next-auth";
 import { supabaseServer } from "@/lib/supabase";
+import { authOptions } from "@/lib/authOptions";
 import { getSessionUserId } from "@/lib/conversations";
 import { requireAdmin } from "@/lib/auth";
 import { AGENT_SCOPES, parseScope } from "@/lib/scopes";
@@ -13,31 +15,42 @@ interface CourseRow {
   description: string | null;
   scope: string;
   position: number;
+  published: boolean;
   created_at: string;
   lessons: { id: string }[] | null;
 }
 
 /**
  * GET /api/courses — cursos del ámbito, con su número de lecciones y cuántas
- * lleva vistas quien consulta. Abierto a cualquier usuario autenticado.
+ * lleva vistas quien consulta.
+ *
+ * Los borradores solo los ve administración, que es quien los prepara.
  */
 export async function GET(req: NextRequest) {
-  const userId = await getSessionUserId();
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
   if (!userId) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   }
+  const isAdmin = session.user.role === "admin";
 
   const scope = parseScope(new URL(req.url).searchParams.get("scope"));
 
   try {
     const supabase = supabaseServer();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("courses")
-      .select("id, title, description, scope, position, created_at, lessons(id)")
+      .select(
+        "id, title, description, scope, position, published, created_at, lessons(id)",
+      )
       .eq("scope", scope)
       .order("position", { ascending: true })
       .order("created_at", { ascending: true });
+
+    if (!isAdmin) query = query.eq("published", true);
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("[courses] Error al listar:", error);
@@ -64,6 +77,7 @@ export async function GET(req: NextRequest) {
       description: c.description,
       scope: parseScope(c.scope),
       position: c.position,
+      published: c.published,
       created_at: c.created_at,
       lesson_count: c.lessons?.length ?? 0,
       viewed_count: (c.lessons ?? []).filter((l) => viewed.has(l.id)).length,
@@ -83,9 +97,11 @@ const createSchema = z.object({
 });
 
 /**
- * POST /api/courses — crea un curso vacío. Solo administración: el temario es
- * material oficial, a diferencia de las notas de conocimiento, que aporta
- * cualquiera.
+ * POST /api/courses — crea un curso vacío, SIN publicar: hay que subirle las
+ * lecciones y ordenarlas antes de que lo vea nadie.
+ *
+ * Solo administración: el temario es material oficial, a diferencia de las
+ * notas de conocimiento, que aporta cualquiera.
  */
 export async function POST(req: NextRequest) {
   const unauthorized = await requireAdmin();
@@ -128,9 +144,10 @@ export async function POST(req: NextRequest) {
       description: body.description ?? null,
       scope: body.scope,
       position: (last?.position ?? -1) + 1,
+      published: false,
       created_by: userId,
     })
-    .select("id, title, description, scope, position, created_at")
+    .select("id, title, description, scope, position, published, created_at")
     .single();
 
   if (error || !data) {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { getServerSession } from "next-auth";
 import { supabaseServer } from "@/lib/supabase";
-import { getSessionUserId } from "@/lib/conversations";
+import { authOptions } from "@/lib/authOptions";
 import { requireAdmin } from "@/lib/auth";
 import { parseScope } from "@/lib/scopes";
 import type { FileType } from "@/types";
@@ -24,29 +25,34 @@ function isStoragePath(p: string | null): boolean {
   return !!p && !p.includes("/") && !p.includes("\\");
 }
 
-/** GET /api/courses/{id} — el curso con sus lecciones en orden. */
+/**
+ * GET /api/courses/{id} — el curso con sus lecciones en orden.
+ * Un borrador solo lo abre administración, tampoco por dirección directa.
+ */
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const userId = await getSessionUserId();
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
   if (!userId) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   }
+  const isAdmin = session.user.role === "admin";
 
   try {
     const supabase = supabaseServer();
 
     const { data: course, error } = await supabase
       .from("courses")
-      .select("id, title, description, scope, position, created_at")
+      .select("id, title, description, scope, position, published, created_at")
       .eq("id", params.id)
       .maybeSingle();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    if (!course) {
+    if (!course || (!course.published && !isAdmin)) {
       return NextResponse.json({ error: "Curso no encontrado." }, { status: 404 });
     }
 
@@ -99,6 +105,8 @@ const updateSchema = z
   .object({
     title: z.string().trim().min(1).optional(),
     description: z.string().trim().nullable().optional(),
+    /** Publicar el curso o devolverlo a borrador. */
+    published: z.boolean().optional(),
   })
   .refine((o) => Object.keys(o).length > 0, {
     message: "No hay cambios que guardar.",
@@ -132,6 +140,7 @@ export async function PATCH(
   if (body.description !== undefined) {
     fields.description = body.description || null;
   }
+  if (body.published !== undefined) fields.published = body.published;
 
   const { data, error } = await supabase
     .from("courses")

@@ -170,6 +170,22 @@ export default function CursoPage({ params }: { params: { id: string } }) {
     load();
   }
 
+  /** Publica el curso o lo devuelve a borrador. */
+  async function setPublished(published: boolean) {
+    if (!course) return;
+    setCourse({ ...course, published });
+    try {
+      const res = await fetch(`/api/courses/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      load(); // si falla, se recupera el estado real
+    }
+  }
+
   /** Guarda el título y la descripción del curso. */
   async function saveCourse(e: React.FormEvent) {
     e.preventDefault();
@@ -280,8 +296,13 @@ export default function CursoPage({ params }: { params: { id: string } }) {
         ) : (
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">
+              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold text-gray-800">
                 {course.title}
+                {!course.published && (
+                  <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                    Borrador
+                  </span>
+                )}
               </h1>
               {course.description && (
                 <p className="mt-1 text-sm text-gray-500">
@@ -290,18 +311,37 @@ export default function CursoPage({ params }: { params: { id: string } }) {
               )}
             </div>
             {isAdmin && (
-              <button
-                onClick={() => {
-                  setEditTitle(course.title);
-                  setEditDescription(course.description ?? "");
-                  setEditing(true);
-                }}
-                className="shrink-0 text-sm font-medium text-belsue hover:underline"
-              >
-                Editar
-              </button>
+              <div className="flex shrink-0 items-center gap-3">
+                <button
+                  onClick={() => setPublished(!course.published)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    course.published
+                      ? "border border-gray-300 text-gray-600 hover:border-amber-400 hover:text-amber-700"
+                      : "bg-belsue text-white hover:bg-belsue-700"
+                  }`}
+                >
+                  {course.published ? "Ocultar al equipo" : "Publicar"}
+                </button>
+                <button
+                  onClick={() => {
+                    setEditTitle(course.title);
+                    setEditDescription(course.description ?? "");
+                    setEditing(true);
+                  }}
+                  className="text-sm font-medium text-belsue hover:underline"
+                >
+                  Editar
+                </button>
+              </div>
             )}
           </div>
+        )}
+
+        {isAdmin && !course.published && (
+          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Este curso está en borrador: solo lo ves tú. Súbele las lecciones,
+            ordénalas y pulsa <b>Publicar</b> cuando esté listo.
+          </p>
         )}
 
         {total > 0 && (

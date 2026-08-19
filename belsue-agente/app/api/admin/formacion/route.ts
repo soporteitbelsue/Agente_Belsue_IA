@@ -29,7 +29,9 @@ export async function GET() {
       await Promise.all([
         supabase
           .from("courses")
+          // Los borradores no cuentan: nadie ha podido hacerlos todavía.
           .select("id, title, position, lessons(id)")
+          .eq("published", true)
           .order("position", { ascending: true })
           .order("created_at", { ascending: true }),
         supabase
