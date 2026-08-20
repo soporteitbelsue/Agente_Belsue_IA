@@ -102,6 +102,29 @@ const CASOS: Caso[] = [
     esperado: ["GUIA AUNNA PASS"],
     scope: "procedimientos",
   },
+  // --- Lecciones de cursos ---
+  // Sus nombres no dicen casi nada por sí solos ("L3 Clientes"), así que
+  // dependen de que la identidad les ponga delante el curso al que pertenecen.
+  {
+    pregunta: "cómo doy de alta un candidato en Ebroker",
+    esperado: ["L1_Creación_de_candidatos"],
+    scope: "procedimientos",
+  },
+  {
+    pregunta: "qué hago si SIAPOL me da una incidencia al procesar",
+    esperado: ["L5 Incidencias de SIAPOL", "L4 Registro de pólizas por SIAPOL"],
+    scope: "procedimientos",
+  },
+  {
+    pregunta: "cómo genero una contraseña segura",
+    esperado: ["L5 Generador de claves seguras"],
+    scope: "procedimientos",
+  },
+  {
+    pregunta: "dónde veo las tarificaciones pendientes",
+    esperado: ["L1 La bandeja de Tarificaciones"],
+    scope: "procedimientos",
+  },
 ];
 
 const supabase = createClient(
