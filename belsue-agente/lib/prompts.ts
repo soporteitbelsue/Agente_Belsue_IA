@@ -56,7 +56,12 @@ Una vez hayas localizado una plantilla en la conversación, NO vuelvas a decir q
 
 Si te preguntan por cómo se organiza la oficina por dentro (quién hace qué, pasos de un trámite interno, herramientas del día a día), responde solo si aparece en el contexto y, en cualquier caso, indícale que esa información vive en la pestaña "Procedimientos" del asistente.
 
+CATÁLOGO Y CONTENIDO SON COSAS DISTINTAS. Más abajo tienes dos bloques. El CATÁLOGO es la lista completa de todo el material que existe en este portal, solo con los nombres: úsalo cuando te pregunten QUÉ hay ("¿qué condicionados de hogar tenemos?", "¿de qué compañías tenemos algo?") y responde con la lista entera, sin quedarte en los pocos que aparezcan abajo. El CONTEXTO son los fragmentos concretos que se han recuperado para esta consulta: es lo único de lo que conoces el contenido. Nunca cuentes lo que dice un documento que solo aparece en el catálogo; di que existe y ofrécete a mirarlo si te preguntan por él.
+
 ${QUICK_REPLIES}
+
+Catálogo del material disponible en este portal:
+{catalogue}
 
 Contexto de documentos y notas internas disponibles:
 {context}
@@ -82,7 +87,12 @@ MUY IMPORTANTE — básate ÚNICAMENTE en el material interno de Belsué (el con
 
 Ahora bien, cuando el contexto SÍ traiga información relacionada con la pregunta, ÚSALA para responder, aunque no esté redactada como un procedimiento perfecto o completo: extrae de esos fragmentos lo que ayude a tu compañero y cítalos. Ese es justo tu trabajo; no descartes una nota por no ser "exacta". Solo cuando en el contexto no haya NADA relacionado con la consulta, dilo con claridad: "No encuentro ese procedimiento entre los documentos ni notas internas de Belsué. Si es algo que hacemos habitualmente, añádelo como nota de procedimiento y podré usarlo." No rellenes los huecos con suposiciones ni inventes pasos, responsables, plazos ni herramientas: un procedimiento inventado hace que alguien trabaje mal.
 
+CATÁLOGO Y CONTENIDO SON COSAS DISTINTAS. Más abajo tienes dos bloques. El CATÁLOGO es la lista completa de todo el material que existe en este portal, solo con los nombres: úsalo cuando te pregunten QUÉ hay ("¿qué condicionados de hogar tenemos?", "¿de qué compañías tenemos algo?") y responde con la lista entera, sin quedarte en los pocos que aparezcan abajo. El CONTEXTO son los fragmentos concretos que se han recuperado para esta consulta: es lo único de lo que conoces el contenido. Nunca cuentes lo que dice un documento que solo aparece en el catálogo; di que existe y ofrécete a mirarlo si te preguntan por él.
+
 ${QUICK_REPLIES}
+
+Catálogo del material disponible en este portal:
+{catalogue}
 
 Contexto de documentos y notas de procedimientos internos disponibles:
 {context}
@@ -94,7 +104,13 @@ const TEMPLATES: Record<AgentScope, string> = {
   procedimientos: PROCEDIMIENTOS_TEMPLATE,
 };
 
-/** Devuelve el prompt de sistema del ámbito con el contexto RAG insertado. */
-export function buildSystemPrompt(scope: unknown, context: string): string {
-  return TEMPLATES[parseScope(scope)].replace("{context}", context);
+/** Devuelve el prompt de sistema del ámbito, con el catálogo y el contexto. */
+export function buildSystemPrompt(
+  scope: unknown,
+  context: string,
+  catalogue = "",
+): string {
+  return TEMPLATES[parseScope(scope)]
+    .replace("{catalogue}", catalogue || "(no hay material todavía)")
+    .replace("{context}", context);
 }

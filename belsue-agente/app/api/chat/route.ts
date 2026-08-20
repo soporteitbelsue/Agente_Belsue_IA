@@ -11,6 +11,7 @@ import {
 } from "@/lib/conversations";
 import { sendNotification, escapeHtml } from "@/lib/email";
 import { buildSystemPrompt } from "@/lib/prompts";
+import { buildCatalogue } from "@/lib/catalogue";
 import { AGENT_SCOPES, DEFAULT_SCOPE, scopeConfig } from "@/lib/scopes";
 import type { Source } from "@/types";
 
@@ -190,7 +191,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const systemPrompt = buildSystemPrompt(scope, buildContext(sources, scope));
+  // El catálogo (solo nombres) permite responder qué material existe; el
+  // contexto, qué dice. Son cosas distintas y el prompt las separa.
+  let catalogue = "";
+  try {
+    catalogue = await buildCatalogue(scope);
+  } catch (err) {
+    console.error("[chat] Error al construir el catálogo:", err);
+  }
+
+  const systemPrompt = buildSystemPrompt(
+    scope,
+    buildContext(sources, scope),
+    catalogue,
+  );
 
   const chatMessages = [
     { role: "system" as const, content: systemPrompt },

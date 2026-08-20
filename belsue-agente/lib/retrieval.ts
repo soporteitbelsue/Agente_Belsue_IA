@@ -15,6 +15,12 @@ const MATCH_THRESHOLD = 0.3;
 // y dejaba fuera al resto de documentos relevantes.
 const OVERFETCH = 3;
 
+// Fragmentos como mucho por documento. Sin tope, un condicionado de 400
+// fragmentos se llevaba la mitad del contexto con trozos casi iguales y
+// dejaba fuera a las demás compañías: preguntando qué condicionados de hogar
+// había, solo llegaban cuatro documentos de los diecinueve que existen.
+const MAX_PER_DOCUMENT = 2;
+
 /**
  * Recupera los fragmentos más relevantes para una consulta (RAG).
  * Genera el embedding de la query y llama a la función SQL `match_chunks`.
@@ -44,24 +50,43 @@ export async function retrieveRelevantChunks(
 
   const rows = (data ?? []) as MatchChunkRow[];
 
+  const toSource = (row: MatchChunkRow): Source => ({
+    documentId: row.document_id,
+    documentName: row.document_name,
+    company: row.document_company ?? undefined,
+    category: row.document_category ?? undefined,
+    content: row.content,
+    similarity: row.similarity,
+  });
+
   // Las filas vienen de más a menos relevantes: al quedarnos con la primera
   // aparición de cada texto conservamos siempre la copia mejor puntuada.
   const seen = new Set<string>();
-  const unique: Source[] = [];
+  const perDocument = new Map<string, number>();
+  const chosen: Source[] = [];
+  const overflow: MatchChunkRow[] = [];
+
   for (const row of rows) {
     const key = row.content.trim();
     if (seen.has(key)) continue;
     seen.add(key);
-    unique.push({
-      documentId: row.document_id,
-      documentName: row.document_name,
-      company: row.document_company ?? undefined,
-      category: row.document_category ?? undefined,
-      content: row.content,
-      similarity: row.similarity,
-    });
-    if (unique.length === matchCount) break;
+
+    const used = perDocument.get(row.document_id) ?? 0;
+    if (used >= MAX_PER_DOCUMENT) {
+      overflow.push(row); // se guarda por si luego falta relleno
+      continue;
+    }
+    perDocument.set(row.document_id, used + 1);
+    chosen.push(toSource(row));
+    if (chosen.length === matchCount) return chosen;
   }
 
-  return unique;
+  // Si el tope ha dejado huecos (pocos documentos hablan del tema), se rellena
+  // con lo mejor que se había apartado: más vale repetir documento que ir corto.
+  for (const row of overflow) {
+    if (chosen.length === matchCount) break;
+    chosen.push(toSource(row));
+  }
+
+  return chosen;
 }
