@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "create-user": "ts-node --compiler-options '{\"module\":\"commonjs\"}' -r dotenv/config scripts/create-user.ts dotenv_config_path=.env.local"
+    "create-user": "ts-node --compiler-options '{\"module\":\"commonjs\"}' -r dotenv/config scripts/create-user.ts dotenv_config_path=.env.local",
+    "check-retrieval": "ts-node --project scripts/tsconfig.json -r dotenv/config scripts/check-retrieval.ts dotenv_config_path=.env.local",
+    "reindex": "ts-node --project scripts/tsconfig.json -r dotenv/config scripts/reindex.ts dotenv_config_path=.env.local"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

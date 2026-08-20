@@ -1,0 +1,11 @@
+{
+  "// nota": "Los scripts se ejecutan con ts-node en Node, no los compila Next. Necesitan módulos CommonJS. Va en un archivo y no en la línea de comandos porque el escapado de comillas no funciona igual en Windows y en Linux.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "noEmit": true
+  },
+  "include": ["./**/*.ts"]
+}
