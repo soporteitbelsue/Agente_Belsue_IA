@@ -9,6 +9,7 @@ import DocumentMetaForm, {
   type EditableDocument,
 } from "@/components/admin/DocumentMetaForm";
 import { CardsSkeleton } from "@/components/Skeleton";
+import DocumentViewer from "@/components/DocumentViewer";
 import {
   CATEGORY_BADGE,
   categoryFilterOptions,
@@ -43,6 +44,9 @@ const TYPE_LABEL: Record<string, string> = {
   pptx: "PowerPoint",
   txt: "Texto",
 };
+
+/** Lo que el navegador sabe pintar sin descargar (ver /api/documents/[id]/view). */
+const VIEWABLE = new Set(["pdf", "txt"]);
 
 const TYPE_FILTERS = [
   { value: "", label: "Todo" },
@@ -105,6 +109,13 @@ function ConocimientoContent() {
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
+  // Documento abierto en el visor a pantalla completa.
+  const [viewer, setViewer] = useState<{
+    title: string;
+    subtitle?: string;
+    url?: string;
+    text?: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -133,6 +144,36 @@ function ConocimientoContent() {
   useEffect(() => {
     setCategory("");
   }, [scope]);
+
+  /** Abre el documento a pantalla completa, sin descargarlo. */
+  async function ver(item: Item) {
+    // Las notas no tienen archivo: su texto ya lo tenemos.
+    if (item.file_type === "nota") {
+      setViewer({
+        title: item.name,
+        subtitle: item.company ?? undefined,
+        text: item.content ?? "",
+      });
+      return;
+    }
+
+    setOpeningId(item.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/documents/${item.id}/view`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "No se pudo abrir.");
+      setViewer({
+        title: item.name,
+        subtitle: item.company ?? undefined,
+        url: data.url as string,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo abrir.");
+    } finally {
+      setOpeningId(null);
+    }
+  }
 
   async function download(item: Item) {
     setOpeningId(item.id);
@@ -313,13 +354,30 @@ function ConocimientoContent() {
               )}
 
               <span className="ml-auto flex items-center gap-3">
+                {/* Ver antes que descargar: casi siempre basta con echar un
+                    vistazo, y bajarse un PDF de 8 MB para eso es absurdo. */}
+                {(item.file_type === "nota" ||
+                  (item.downloadable && VIEWABLE.has(item.file_type))) && (
+                  <button
+                    onClick={() => ver(item)}
+                    disabled={openingId === item.id}
+                    className="font-medium text-belsue hover:underline disabled:opacity-50"
+                  >
+                    {openingId === item.id ? "Abriendo…" : "Ver"}
+                  </button>
+                )}
                 {item.downloadable && (
                   <button
                     onClick={() => download(item)}
                     disabled={openingId === item.id}
-                    className="font-medium text-belsue hover:underline disabled:opacity-50"
+                    className="font-medium text-gray-500 hover:text-belsue hover:underline disabled:opacity-50"
+                    title={
+                      VIEWABLE.has(item.file_type)
+                        ? undefined
+                        : "Este formato no se puede ver aquí; súbelo en PDF si quieres leerlo dentro"
+                    }
                   >
-                    {openingId === item.id ? "Abriendo…" : "Descargar"}
+                    Descargar
                   </button>
                 )}
                 {item.can_edit && (
@@ -361,6 +419,16 @@ function ConocimientoContent() {
           </div>
         ))}
       </div>
+
+      {viewer && (
+        <DocumentViewer
+          title={viewer.title}
+          subtitle={viewer.subtitle}
+          url={viewer.url}
+          text={viewer.text}
+          onClose={() => setViewer(null)}
+        />
+      )}
 
       {adding && (
         <AddKnowledgeModal

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import LessonForm from "@/components/cursos/LessonForm";
+import DocumentViewer from "@/components/DocumentViewer";
 import type { CourseWithLessons, Lesson } from "@/types";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -216,16 +217,6 @@ export default function CursoPage({ params }: { params: { id: string } }) {
     await fetch(`/api/courses/${params.id}`, { method: "DELETE" });
     router.push("/procedimientos/cursos");
   }
-
-  // Escape cierra el visor, que es lo que espera cualquiera a pantalla completa.
-  useEffect(() => {
-    if (!viewer) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setViewer(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [viewer]);
 
   if (loading) {
     return <p className="p-6 text-sm text-gray-400">Cargando…</p>;
@@ -510,65 +501,41 @@ export default function CursoPage({ params }: { params: { id: string } }) {
 
       {/* Visor a pantalla completa: una lección se lee, no se ojea en una
           columna estrecha. Ocupa todo salvo su propia barra de título. */}
-      {viewer && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-gray-900">
-          <div className="flex items-center justify-between gap-3 px-4 py-2 text-white">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="truncate text-sm font-medium">
-                {viewer.title}
-              </span>
-              <span className="hidden shrink-0 text-xs text-white/50 sm:inline">
-                {course.title}
-              </span>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              {(() => {
-                const index = course.lessons.findIndex(
-                  (l) => l.id === viewer.id,
-                );
-                const previous = course.lessons[index - 1];
-                const next = course.lessons[index + 1];
-                return (
-                  <>
-                    <span className="hidden text-xs text-white/50 sm:inline">
-                      Lección {index + 1} de {course.lessons.length}
-                    </span>
-                    <button
-                      onClick={() => previous && openMaterial(previous)}
-                      disabled={!previous}
-                      className="rounded-md px-2 py-1 text-sm text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
-                    >
-                      ← Anterior
-                    </button>
-                    <button
-                      onClick={() => next && openMaterial(next)}
-                      disabled={!next}
-                      className="rounded-md px-2 py-1 text-sm text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
-                    >
-                      Siguiente →
-                    </button>
-                  </>
-                );
-              })()}
-
-              <button
-                onClick={() => setViewer(null)}
-                title="Cerrar (Esc)"
-                className="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/20"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-
-          <iframe
-            src={viewer.url}
-            title={viewer.title}
-            className="flex-1 w-full border-0 bg-white"
-          />
-        </div>
-      )}
+      {viewer &&
+        (() => {
+          const index = course.lessons.findIndex((l) => l.id === viewer.id);
+          const previous = course.lessons[index - 1];
+          const next = course.lessons[index + 1];
+          return (
+            <DocumentViewer
+              title={viewer.title}
+              subtitle={course.title}
+              url={viewer.url}
+              onClose={() => setViewer(null)}
+              extra={
+                <>
+                  <span className="hidden text-xs text-white/50 sm:inline">
+                    Lección {index + 1} de {course.lessons.length}
+                  </span>
+                  <button
+                    onClick={() => previous && openMaterial(previous)}
+                    disabled={!previous}
+                    className="rounded-md px-2 py-1 text-sm text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+                  >
+                    ← Anterior
+                  </button>
+                  <button
+                    onClick={() => next && openMaterial(next)}
+                    disabled={!next}
+                    className="rounded-md px-2 py-1 text-sm text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+                  >
+                    Siguiente →
+                  </button>
+                </>
+              }
+            />
+          );
+        })()}
 
       <div className={isAdmin ? "border-t border-gray-100 pt-4" : "hidden"}>
         {confirmDelete ? (
