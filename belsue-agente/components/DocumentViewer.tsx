@@ -13,6 +13,7 @@ export default function DocumentViewer({
   title,
   subtitle,
   url,
+  video = false,
   text,
   onClose,
   extra,
@@ -21,6 +22,11 @@ export default function DocumentViewer({
   subtitle?: string;
   /** Archivo a mostrar en el marco. */
   url?: string;
+  /**
+   * true si `url` es un vídeo incrustado: necesita permisos propios (pantalla
+   * completa, sonido) que un PDF no usa.
+   */
+  video?: boolean;
   /** Texto plano, para las notas, que no tienen archivo. */
   text?: string;
   onClose: () => void;
@@ -60,7 +66,21 @@ export default function DocumentViewer({
         </div>
       </div>
 
-      {url ? (
+      {url && video ? (
+        // El vídeo se centra sobre fondo negro guardando su proporción, en vez
+        // de estirarse a toda la pantalla y salir deformado.
+        <div className="flex flex-1 items-center justify-center bg-black p-2 sm:p-6">
+          <div className="aspect-video max-h-full w-full max-w-6xl">
+            <iframe
+              src={url}
+              title={title}
+              className="h-full w-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      ) : url ? (
         <iframe
           src={url}
           title={title}

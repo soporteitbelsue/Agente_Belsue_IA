@@ -46,6 +46,9 @@ export default function LessonForm({
   onAdded: () => void;
   onCancel: () => void;
 }) {
+  // Una lección es un archivo o un vídeo alojado fuera.
+  const [tipo, setTipo] = useState<"archivo" | "video">("archivo");
+  const [videoUrl, setVideoUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -75,14 +78,69 @@ export default function LessonForm({
     if (!title) setTitle(stripExtension(f.name));
   }
 
+  /** Registra el vídeo como documento y lo engancha al curso. */
+  async function submitVideo() {
+    const res = await fetch("/api/documents/video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: title.trim(),
+        url: videoUrl.trim(),
+        description: description.trim(),
+        category: "general",
+        scopes: ["procedimientos"],
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "No se pudo registrar el vídeo.");
+
+    const lessonRes = await fetch(`/api/courses/${courseId}/lessons`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        documentId: data.documentId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+      }),
+    });
+    const lessonData = await lessonRes.json();
+    if (!lessonRes.ok) {
+      throw new Error(lessonData.error ?? "No se pudo crear la lección.");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file) {
-      setError("Selecciona el material de la lección.");
-      return;
-    }
     if (!title.trim()) {
       setError("La lección necesita un título.");
+      return;
+    }
+
+    if (tipo === "video") {
+      if (!videoUrl.trim()) {
+        setError("Pega el enlace del vídeo.");
+        return;
+      }
+      if (description.trim().length < 20) {
+        setError(
+          "Describe de qué va el vídeo: de un vídeo no se puede sacar texto, así que la descripción es lo único que el agente podrá leer.",
+        );
+        return;
+      }
+      setError(null);
+      setStatus("processing");
+      try {
+        await submitVideo();
+        onAdded();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error desconocido.");
+        setStatus("error");
+      }
+      return;
+    }
+
+    if (!file) {
+      setError("Selecciona el material de la lección.");
       return;
     }
 
@@ -160,7 +218,52 @@ export default function LessonForm({
     >
       <h2 className="font-semibold text-gray-800">Añadir lección</h2>
 
+      {/* Archivo o vídeo: dos formas de dar la misma lección. */}
+      <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+        {(
+          [
+            ["archivo", "Un documento"],
+            ["video", "Un vídeo"],
+          ] as const
+        ).map(([valor, etiqueta]) => (
+          <button
+            key={valor}
+            type="button"
+            onClick={() => setTipo(valor)}
+            disabled={busy}
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              tipo === valor
+                ? "bg-white text-belsue shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {etiqueta}
+          </button>
+        ))}
+      </div>
+
+      {tipo === "video" && (
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-gray-600">
+            Enlace del vídeo <span className="text-belsue">*</span>
+          </span>
+          <input
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            disabled={busy}
+            placeholder="https://www.youtube.com/watch?v=…"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+          />
+          <span className="mt-1 block text-xs text-gray-400">
+            El vídeo se queda en YouTube y aquí solo se guarda el enlace, así
+            que no ocupa espacio. Súbelo como <b>no listado</b> si no quieres
+            que aparezca en búsquedas de YouTube.
+          </span>
+        </label>
+      )}
+
       <div
+        hidden={tipo === "video"}
         onClick={() => !busy && fileInputRef.current?.click()}
         onDragOver={(e) => {
           e.preventDefault();
@@ -223,13 +326,18 @@ export default function LessonForm({
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-gray-600">
           Descripción
+          {tipo === "video" && <span className="text-belsue"> *</span>}
         </span>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={2}
           disabled={busy}
-          placeholder="Qué se explica en esta lección (ayuda al agente a encontrarla)"
+          placeholder={
+            tipo === "video"
+              ? "Obligatoria en los vídeos: cuenta qué se explica y en qué orden. De un vídeo no se puede sacar texto, así que esto es lo único que el agente leerá."
+              : "Qué se explica en esta lección (ayuda al agente a encontrarla)"
+          }
+          rows={tipo === "video" ? 4 : 2}
           className="w-full resize-y rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
         />
       </label>

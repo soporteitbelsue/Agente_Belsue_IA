@@ -7,7 +7,7 @@ import { parseScope, parseScopes } from "@/lib/scopes";
 export const runtime = "nodejs";
 
 /** Tipos con archivo, frente a las notas, que son texto escrito a mano. */
-const FILE_TYPES = ["pdf", "docx", "txt", "pptx"];
+const FILE_TYPES = ["pdf", "docx", "txt", "pptx", "video"];
 
 interface Row {
   id: string;

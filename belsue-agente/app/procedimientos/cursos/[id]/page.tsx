@@ -14,10 +14,11 @@ const TYPE_LABEL: Record<string, string> = {
   docx: "Word",
   txt: "Texto",
   nota: "Nota",
+  video: "Vídeo",
 };
 
-/** Tipos que se pueden leer sin salir de la página (ver /api/documents/[id]/view). */
-const VIEWABLE = new Set(["pdf", "txt"]);
+/** Tipos que se pueden ver sin salir de la página (ver /api/documents/[id]/view). */
+const VIEWABLE = new Set(["pdf", "txt", "video"]);
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -41,6 +42,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
   const [viewer, setViewer] = useState<{
     id: string;
     url: string;
+    video: boolean;
     title: string;
   } | null>(null);
   // Edición del título y la descripción del curso.
@@ -103,6 +105,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
       setViewer({
         id: lesson.id,
         url: data.url as string,
+        video: data.video === true,
         title: lesson.title,
       });
       if (!lesson.viewed) await toggleViewed(lesson);
@@ -406,8 +409,19 @@ export default function CursoPage({ params }: { params: { id: string } }) {
                 <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600">
                   {TYPE_LABEL[lesson.file_type] ?? lesson.file_type}
                 </span>
-                <span>{formatBytes(lesson.file_size)}</span>
-                {!lesson.downloadable ? (
+                {/* El vídeo no ocupa sitio nuestro: no tiene tamaño que enseñar. */}
+                {lesson.file_type !== "video" && (
+                  <span>{formatBytes(lesson.file_size)}</span>
+                )}
+                {lesson.file_type === "video" ? (
+                  <button
+                    onClick={() => openMaterial(lesson)}
+                    disabled={openingId === lesson.id}
+                    className="font-medium text-belsue hover:underline disabled:opacity-50"
+                  >
+                    {openingId === lesson.id ? "Abriendo…" : "Ver el vídeo"}
+                  </button>
+                ) : !lesson.downloadable ? (
                   <span title="Sin archivo original disponible">
                     Material no disponible
                   </span>
@@ -511,6 +525,7 @@ export default function CursoPage({ params }: { params: { id: string } }) {
               title={viewer.title}
               subtitle={course.title}
               url={viewer.url}
+              video={viewer.video}
               onClose={() => setViewer(null)}
               extra={
                 <>

@@ -43,10 +43,11 @@ const TYPE_LABEL: Record<string, string> = {
   docx: "Word",
   pptx: "PowerPoint",
   txt: "Texto",
+  video: "Vídeo",
 };
 
 /** Lo que el navegador sabe pintar sin descargar (ver /api/documents/[id]/view). */
-const VIEWABLE = new Set(["pdf", "txt"]);
+const VIEWABLE = new Set(["pdf", "txt", "video"]);
 
 const TYPE_FILTERS = [
   { value: "", label: "Todo" },
@@ -114,6 +115,7 @@ function ConocimientoContent() {
     title: string;
     subtitle?: string;
     url?: string;
+    video?: boolean;
     text?: string;
   } | null>(null);
 
@@ -167,6 +169,7 @@ function ConocimientoContent() {
         title: item.name,
         subtitle: item.company ?? undefined,
         url: data.url as string,
+        video: data.video === true,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo abrir.");
@@ -357,6 +360,7 @@ function ConocimientoContent() {
                 {/* Ver antes que descargar: casi siempre basta con echar un
                     vistazo, y bajarse un PDF de 8 MB para eso es absurdo. */}
                 {(item.file_type === "nota" ||
+                  item.file_type === "video" ||
                   (item.downloadable && VIEWABLE.has(item.file_type))) && (
                   <button
                     onClick={() => ver(item)}
@@ -425,6 +429,7 @@ function ConocimientoContent() {
           title={viewer.title}
           subtitle={viewer.subtitle}
           url={viewer.url}
+          video={viewer.video}
           text={viewer.text}
           onClose={() => setViewer(null)}
         />
