@@ -73,11 +73,66 @@ function itemsToText(items: any[]): string {
 }
 
 /**
+ * El pdf.js que empaqueta `unpdf` llama a `Math.sumPrecise`, un builtin de
+ * JS que todavía no existe en Node (tampoco en el 24). Sin este parche, subir
+ * ciertos PDFs revienta con "Math.sumPrecise is not a function".
+ *
+ * Se puede borrar cuando Node incorpore el builtin.
+ */
+
+/** Suma compensada de Neumaier sobre una lista de números finitos. */
+function neumaierSum(values: number[]): number {
+  let sum = 0;
+  let compensation = 0;
+  for (const value of values) {
+    const next = sum + value;
+    // Recupera el error de redondeo que se pierde en cada suma parcial.
+    compensation +=
+      Math.abs(sum) >= Math.abs(value)
+        ? sum - next + value
+        : value - next + sum;
+    sum = next;
+  }
+  return sum + compensation;
+}
+
+function ensureSumPrecise(): void {
+  const math = Math as typeof Math & {
+    sumPrecise?: (values: Iterable<number>) => number;
+  };
+  if (typeof math.sumPrecise === "function") return;
+
+  math.sumPrecise = (values: Iterable<number>): number => {
+    const list: number[] = [];
+    for (const value of values) {
+      if (typeof value !== "number") {
+        throw new TypeError("Math.sumPrecise: todos los valores deben ser números.");
+      }
+      list.push(value);
+    }
+
+    if (list.length === 0) return -0; // lo que exige la especificación
+    // Con Infinity o NaN de por medio la compensación no vale: manda la suma directa.
+    if (!list.every(Number.isFinite)) return list.reduce((a, b) => a + b, 0);
+
+    const total = neumaierSum(list);
+    if (Number.isFinite(total)) return total;
+
+    // Desbordamiento intermedio: las entradas son finitas pero alguna suma
+    // parcial se sale de rango. Reescalamos (dividir entre una potencia de dos
+    // es exacto), sumamos y deshacemos la escala.
+    const SCALE = 2 ** 600;
+    return neumaierSum(list.map((v) => v / SCALE)) * SCALE;
+  };
+}
+
+/**
  * Extrae el texto de un PDF usando `unpdf` (que trae una versión moderna de
  * pdf.js). Reemplaza a `pdf-parse`, cuyo pdf.js de 2018 fallaba en algunos
  * PDFs con "Invalid number: ... (charCode N)".
  */
 async function extractPdfText(buffer: Buffer): Promise<string> {
+  ensureSumPrecise();
   const { getDocumentProxy } = await import("unpdf");
   // unpdf reutiliza el buffer internamente; copiamos a un Uint8Array propio.
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
