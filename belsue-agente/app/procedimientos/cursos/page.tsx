@@ -42,6 +42,7 @@ export default function CursosPage() {
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setError(null);
@@ -60,6 +61,15 @@ export default function CursosPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const term = search.trim().toLowerCase();
+  const filtered = term
+    ? courses.filter(
+        (c) =>
+          c.title.toLowerCase().includes(term) ||
+          (c.description ?? "").toLowerCase().includes(term),
+      )
+    : courses;
 
   return (
     <div className="mx-auto w-full max-w-[1700px] space-y-6 overflow-y-auto px-4 py-6 sm:px-6">
@@ -87,6 +97,15 @@ export default function CursosPage() {
         )}
       </div>
 
+      {courses.length > 0 && (
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por título o descripción…"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-belsue focus:outline-none sm:max-w-sm"
+        />
+      )}
+
       {error && <p className="text-sm text-red-500">{error}</p>}
       {loading && <p className="text-sm text-gray-400">Cargando…</p>}
 
@@ -103,8 +122,22 @@ export default function CursosPage() {
         </div>
       )}
 
+      {!loading && courses.length > 0 && filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 py-16 text-center">
+          <p className="text-sm text-gray-500">
+            Ningún curso coincide con «{search.trim()}».
+          </p>
+          <button
+            onClick={() => setSearch("")}
+            className="mt-2 text-sm font-medium text-belsue hover:underline"
+          >
+            Limpiar búsqueda
+          </button>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {courses.map((course) => (
+        {filtered.map((course) => (
           <Link
             key={course.id}
             href={`/procedimientos/cursos/${course.id}`}
