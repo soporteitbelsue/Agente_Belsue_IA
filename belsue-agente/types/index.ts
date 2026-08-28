@@ -210,3 +210,34 @@ export interface MatchChunkRow {
   document_company: string | null;
   document_scope: string | null;
 }
+
+// --- Agenda de contactos ---
+
+/**
+ * Refleja la tabla `contacts`. Sustituye a los PDFs de teléfonos: al ser
+ * campos y no texto maquetado, un correo ya no puede partirse por la mitad.
+ */
+export interface Contact {
+  id: string;
+  company: string;
+  department: string | null;
+  phone: string | null;
+  phone2: string | null;
+  mobile: string | null;
+  fax: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  postal_code: string | null;
+  province: string | null;
+  notes: string | null;
+  scope: AgentScope;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Campos que se pueden crear o editar desde la pestaña de contactos. */
+export type ContactInput = Omit<
+  Contact,
+  "id" | "scope" | "created_at" | "updated_at"
+>;

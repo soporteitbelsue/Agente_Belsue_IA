@@ -195,7 +195,10 @@ const PROCEDIMIENTOS: ScopeConfig = {
     description:
       "Cómo nos organizamos y cómo se hace cada cosa en la oficina, en notas y documentos. El agente los usa para responder. Cualquiera puede añadir.",
   },
-  extraLinks: [{ label: "Cursos", href: "/procedimientos/cursos" }],
+  extraLinks: [
+    { label: "Cursos", href: "/procedimientos/cursos" },
+    { label: "Contactos", href: "/procedimientos/contactos" },
+  ],
 };
 
 export const SCOPES: Record<AgentScope, ScopeConfig> = {

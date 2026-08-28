@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CONTACTS_CATEGORY } from "@/lib/contacts";
 import { getServerSession } from "next-auth";
 import { supabaseServer } from "@/lib/supabase";
 import { authOptions } from "@/lib/authOptions";
@@ -59,6 +60,12 @@ export async function GET(req: NextRequest) {
         "id, name, description, content, company, category, scopes, file_type, file_size, file_path, created_by, created_at, users(name)",
       )
       .contains("scopes", [scope])
+      // Fuera los documentos que genera la agenda de contactos: son un
+      // detalle interno del indexado y taparían el conocimiento real (hay
+      // uno por compañía). Los contactos se consultan en su pestaña.
+      // Se usa `or` y no `neq` porque en SQL NULL != 'contactos' no es
+      // cierto, y las notas sin categoría desaparecerían del listado.
+      .or(`category.is.null,category.neq.${CONTACTS_CATEGORY}`)
       .order("created_at", { ascending: false });
 
     if (type === "nota") query = query.eq("file_type", "nota");
