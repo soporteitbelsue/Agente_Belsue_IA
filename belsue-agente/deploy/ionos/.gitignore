@@ -1,0 +1,4 @@
+# Secretos del servidor: nunca al repositorio.
+.env
+*.dump
+*.sql.gz
