@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 export const runtime = "nodejs";
 
 const USER_FIELDS =
-  "id, name, email, role, department, is_active, created_at, last_login";
+  "id, name, email, role, department, is_active, created_at, last_login, must_change_password, password_changed_at";
 
 const updateSchema = z
   .object({

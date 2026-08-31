@@ -50,17 +50,33 @@ export const authOptions: NextAuthOptions = {
           email: user.email as string,
           role: user.role as UserRole,
           department: (user.department as string | null) ?? undefined,
+          mustChangePassword: user.must_change_password === true,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.department = user.department;
+        token.mustChangePassword = user.mustChangePassword === true;
       }
+
+      // Al cambiar la contraseña, la página llama a update() de useSession
+      // para levantar la obligación sin tener que cerrar sesión. Releemos el
+      // flag de la base en vez de fiarnos de lo que mande el navegador.
+      if (trigger === "update" && token.id) {
+        const supabase = supabaseServer();
+        const { data } = await supabase
+          .from("users")
+          .select("must_change_password")
+          .eq("id", token.id)
+          .maybeSingle();
+        if (data) token.mustChangePassword = data.must_change_password === true;
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -68,6 +84,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.department = token.department;
+        session.user.mustChangePassword = token.mustChangePassword === true;
       }
       return session;
     },

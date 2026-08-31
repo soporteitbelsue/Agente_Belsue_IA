@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import AdminTabs from "@/components/admin/AdminTabs";
+import { MIN_PASSWORD_LENGTH, generateTempPassword } from "@/lib/password";
 import type { User } from "@/types";
 
 const DEPARTMENTS = [
@@ -12,19 +13,6 @@ const DEPARTMENTS = [
   "Dirección",
   "Departamento Tecnológico",
 ];
-
-/** Genera una contraseña aleatoria segura de 12 caracteres. */
-function generatePassword(length = 12): string {
-  const chars =
-    "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*";
-  const values = new Uint32Array(length);
-  crypto.getRandomValues(values);
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += chars[values[i]! % chars.length];
-  }
-  return out;
-}
 
 function RoleBadge({ role }: { role: string }) {
   const cls =
@@ -55,6 +43,15 @@ export default function UsersPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
 
+  // Reseteo de contraseña: la temporal sólo existe en este estado, mientras
+  // el aviso está abierto. No se guarda ni se puede volver a consultar.
+  const [resetting, setResetting] = useState<string | null>(null);
+  const [resetResult, setResetResult] = useState<{
+    user: User;
+    password: string;
+  } | null>(null);
+  const [resetCopied, setResetCopied] = useState(false);
+
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -78,9 +75,9 @@ export default function UsersPage() {
     setFormError(null);
     setOkMsg(null);
 
-    if (!name.trim() || !email.trim() || password.length < 6) {
+    if (!name.trim() || !email.trim() || password.length < MIN_PASSWORD_LENGTH) {
       setFormError(
-        "Nombre, email y contraseña (mínimo 6 caracteres) son obligatorios.",
+        `Nombre, email y contraseña (mínimo ${MIN_PASSWORD_LENGTH} caracteres) son obligatorios.`,
       );
       return;
     }
@@ -144,6 +141,38 @@ export default function UsersPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al actualizar.");
+    }
+  }
+
+  async function resetPassword(user: User) {
+    const confirmed = window.confirm(
+      `Se le pondrá una contraseña temporal a ${user.name} y la actual dejará ` +
+        `de funcionar. Tendrá que cambiarla la próxima vez que entre.\n\n` +
+        `¿Continuar?`,
+    );
+    if (!confirmed) return;
+
+    setError(null);
+    setResetting(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/reset-password`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Error al restablecer la contraseña.");
+      }
+      setResetCopied(false);
+      setResetResult({ user: data.user as User, password: data.password });
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al restablecer la contraseña.",
+      );
+    } finally {
+      setResetting(null);
     }
   }
 
@@ -217,7 +246,7 @@ export default function UsersPage() {
                   }}
                   required
                   disabled={creating}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 pr-9 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
                 />
                 <button
@@ -241,7 +270,7 @@ export default function UsersPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setPassword(generatePassword());
+                  setPassword(generateTempPassword());
                   setShowPassword(true);
                   setCopied(false);
                 }}
@@ -368,15 +397,25 @@ export default function UsersPage() {
                       {u.department ?? "—"}
                     </td>
                     <td className="py-2 pr-4">
-                      {u.is_active ? (
-                        <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                          Activo
-                        </span>
-                      ) : (
-                        <span className="rounded bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
-                          Inactivo
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1">
+                        {u.is_active ? (
+                          <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                            Activo
+                          </span>
+                        ) : (
+                          <span className="rounded bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+                            Inactivo
+                          </span>
+                        )}
+                        {u.must_change_password && (
+                          <span
+                            title="Tiene una contraseña temporal y deberá cambiarla al entrar."
+                            className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
+                          >
+                            Contraseña temporal
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-2 pr-4 text-gray-500">
                       {u.last_login
@@ -395,6 +434,15 @@ export default function UsersPage() {
                           className="text-xs font-medium text-belsue hover:underline"
                         >
                           {u.role === "admin" ? "Hacer asesor" : "Hacer admin"}
+                        </button>
+                        <button
+                          onClick={() => resetPassword(u)}
+                          disabled={resetting === u.id}
+                          className="text-xs font-medium text-belsue hover:underline disabled:opacity-40"
+                        >
+                          {resetting === u.id
+                            ? "Generando…"
+                            : "Restablecer contraseña"}
                         </button>
                         <button
                           onClick={() => toggleActive(u)}
@@ -420,6 +468,63 @@ export default function UsersPage() {
           </div>
         )}
       </div>
+
+      {/* Contraseña temporal recién generada. Se muestra una sola vez: en
+          cuanto se cierra el aviso no hay forma de recuperarla, hay que
+          repetir el reseteo. */}
+      {resetResult && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div className="w-full max-w-[460px] rounded-xl bg-white p-6 shadow-xl">
+            <h3 id="reset-title" className="text-lg font-semibold text-gray-800">
+              Contraseña temporal de {resetResult.user.name}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Anótala ahora: al cerrar esta ventana no se puede volver a ver.
+            </p>
+
+            <div className="mt-4 flex items-center gap-2">
+              <code className="flex-1 select-all rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-center font-mono text-lg tracking-wide text-gray-800">
+                {resetResult.password}
+              </code>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(resetResult.password);
+                    setResetCopied(true);
+                  } catch {
+                    /* sin portapapeles: queda seleccionable a mano */
+                  }
+                }}
+                className="shrink-0 rounded-md border border-belsue/40 px-3 py-2.5 text-xs font-medium text-belsue hover:bg-belsue/5"
+              >
+                {resetCopied ? "Copiado ✓" : "Copiar"}
+              </button>
+            </div>
+
+            <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Comunícasela en persona o por teléfono, nunca por correo. En
+              cuanto entre con ella, la aplicación le obligará a cambiarla.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setResetResult(null);
+                setResetCopied(false);
+              }}
+              className="mt-5 w-full rounded-md bg-belsue px-4 py-2.5 text-sm font-medium text-white hover:bg-belsue-700"
+            >
+              Ya la he anotado
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

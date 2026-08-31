@@ -3,16 +3,22 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { supabaseServer } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 
 export const runtime = "nodejs";
 
 const USER_FIELDS =
-  "id, name, email, role, department, is_active, created_at, last_login";
+  "id, name, email, role, department, is_active, created_at, last_login, must_change_password, password_changed_at";
 
 const createSchema = z.object({
   name: z.string().min(1, "El nombre es obligatorio."),
   email: z.string().email("Email no válido."),
-  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres."),
+  password: z
+    .string()
+    .min(
+      MIN_PASSWORD_LENGTH,
+      `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`,
+    ),
   role: z.enum(["asesor", "admin"]).optional().default("asesor"),
   department: z.string().optional(),
 });
@@ -67,6 +73,9 @@ export async function POST(req: NextRequest) {
         password_hash,
         role,
         department: department ?? null,
+        // La contraseña de alta la elige administración y se comunica por
+        // teléfono o en persona: el trabajador la cambia en su primer acceso.
+        must_change_password: true,
       })
       .select(USER_FIELDS)
       .single();

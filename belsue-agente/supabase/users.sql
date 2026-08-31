@@ -11,7 +11,10 @@ CREATE TABLE IF NOT EXISTS users (
   department    text,
   is_active     boolean NOT NULL DEFAULT true,
   created_at    timestamptz DEFAULT now(),
-  last_login    timestamptz
+  last_login    timestamptz,
+  -- Reseteo de contraseña (ver migración 013): true obliga a cambiarla al entrar.
+  must_change_password boolean NOT NULL DEFAULT false,
+  password_changed_at  timestamptz
 );
 
 CREATE INDEX IF NOT EXISTS users_email_idx ON users (email);

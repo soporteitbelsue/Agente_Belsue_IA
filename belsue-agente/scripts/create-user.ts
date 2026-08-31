@@ -60,6 +60,9 @@ async function main() {
       password_hash,
       role,
       department: department || null,
+      // Igual que en el alta desde /admin/usuarios: quien la elige aquí no es
+      // el trabajador, así que la cambia en su primer acceso.
+      must_change_password: true,
     })
     .select("id, name, email, role, department")
     .single();

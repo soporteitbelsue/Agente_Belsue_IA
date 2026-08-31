@@ -15,6 +15,9 @@ export interface User {
   is_active: boolean;
   created_at: string;
   last_login?: string;
+  /** true tras un reseteo de administración: debe cambiarla para poder entrar. */
+  must_change_password: boolean;
+  password_changed_at?: string | null;
 }
 
 // --- Augmentación de los tipos de NextAuth para incluir id, role y department ---
@@ -24,12 +27,14 @@ declare module "next-auth" {
       id: string;
       role: UserRole;
       department?: string;
+      mustChangePassword?: boolean;
     } & DefaultSession["user"];
   }
   interface User {
     id: string;
     role: UserRole;
     department?: string;
+    mustChangePassword?: boolean;
   }
 }
 
@@ -38,6 +43,9 @@ declare module "next-auth/jwt" {
     id: string;
     role: UserRole;
     department?: string;
+    /** Copia del flag de la tabla `users`. El middleware lo lee en cada
+     *  petición para retener al usuario en /cuenta/contrasena. */
+    mustChangePassword?: boolean;
   }
 }
 

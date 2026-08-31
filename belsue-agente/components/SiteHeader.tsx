@@ -61,6 +61,10 @@ function HeaderInner() {
 
   const user = session?.user;
 
+  // Con una contraseña temporal pendiente sólo se puede ir a cambiarla: no
+  // enseñamos navegación que el middleware va a rebotar de vuelta.
+  const locked = user?.mustChangePassword === true;
+
   // Portal activo: por la ruta (el chat de cada portal) o por el query param
   // (documentos y conocimiento, que son las mismas páginas para ambos).
   const portal: ScopeConfig | null =
@@ -107,7 +111,7 @@ function HeaderInner() {
           <>
             {/* Navegación del portal, en pestañas: se ve dónde estás. */}
             <nav className="hidden items-center gap-1 justify-self-center md:flex">
-              {portal && (
+              {portal && !locked && (
                 <>
                   <NavTab href={portal.path} active={pathname === portal.path}>
                     Chat
@@ -130,7 +134,7 @@ function HeaderInner() {
                 </>
               )}
 
-              {user.role === "admin" && (
+              {user.role === "admin" && !locked && (
                 <NavTab href="/admin" active={inAdmin}>
                   Administración
                 </NavTab>
@@ -168,7 +172,7 @@ function HeaderInner() {
             )}
 
             {/* Volver al selector de portales. */}
-            {pathname !== "/" && (
+            {pathname !== "/" && !locked && (
               <Link
                 href="/"
                 title="Cambiar de portal"
@@ -181,14 +185,19 @@ function HeaderInner() {
               </Link>
             )}
 
-            <div className="flex items-center gap-2">
+            {/* El nombre lleva a la cuenta: de momento, cambiar la contraseña. */}
+            <Link
+              href="/cuenta/contrasena"
+              title="Cambiar mi contraseña"
+              className="flex items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-white/15"
+            >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold">
                 {initials(user.name ?? "?")}
               </span>
               <span className="hidden text-sm font-medium lg:inline">
                 {user.name}
               </span>
-            </div>
+            </Link>
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="flex items-center gap-1 rounded-md bg-white/10 px-2.5 py-1.5 text-sm text-white transition hover:bg-white/20"
