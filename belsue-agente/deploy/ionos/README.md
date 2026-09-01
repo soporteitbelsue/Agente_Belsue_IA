@@ -312,7 +312,87 @@ docker logs belsue-app
 
 ---
 
-## Acceso mientras no haya dominio
+## Hito 8 — Dominio y HTTPS
+
+`panelformacion.belsueseguros.es` apunta a este servidor desde el 1 de septiembre de
+2026. **Es la dirección de producción.**
+
+### Cortafuegos
+
+En el Cloud Panel de IONOS, la política de firewall del servidor debe permitir **TCP 22,
+80 y 443**. El 80 hace falta para emitir el certificado aunque después todo vaya por el
+443. Los puertos 3000 y 8000 siguen escuchando solo en `127.0.0.1` y no se abren nunca.
+
+Ojo: esa política es **compartida con el VPS de belchat**, así que un cambio ahí afecta a
+los dos servidores.
+
+### DNS
+
+El registro era un CNAME hacia Vercel. Un CNAME no puede apuntar a una IP, así que hay que
+**borrarlo y crear un registro A** con nombre `panelformacion` y valor `31.70.134.101`.
+
+### El proxy
+
+Un único dominio sirve para todo: Caddy manda `/rest/v1` y `/storage/v1` a Supabase y el
+resto a la aplicación. Eso es lo que hace que el navegador y el servidor vean Supabase en
+la **misma** dirección, que era la causa de que los PDF no cargaran.
+
+```bash
+printf '%s\n' 'panelformacion.belsueseguros.es {' '  encode gzip' '  handle /rest/v1/* {' '    reverse_proxy 127.0.0.1:8000' '  }' '  handle /storage/v1/* {' '    reverse_proxy 127.0.0.1:8000' '  }' '  handle {' '    reverse_proxy 127.0.0.1:3000 {' '      header_up Host {host}' '      header_up X-Forwarded-Host {host}' '      header_up X-Forwarded-Proto {scheme}' '    }' '  }' '}' > /opt/belsue/Caddyfile
+
+docker run -d --name belsue-caddy --restart unless-stopped --network host \
+  -v /opt/belsue/Caddyfile:/etc/caddy/Caddyfile:ro \
+  -v /opt/belsue/caddy-data:/data -v /opt/belsue/caddy-config:/config caddy:2
+```
+
+Caddy pide el certificado a Let's Encrypt él solo en cuanto el dominio resuelve aquí.
+
+> Se usa `printf` en vez de `nano` porque es fácil salir del editor sin guardar
+> (`Ctrl+O`, `Enter`, `Ctrl+X`). Si el fichero no existe, Docker crea una **carpeta** con
+> ese nombre al montarlo y el contenedor se queda en estado `Created` sin registros.
+
+### Variables al dominio
+
+```bash
+cd /opt/belsue/app/belsue-agente
+sed -i -e 's|^SUPABASE_URL=.*|SUPABASE_URL=https://panelformacion.belsueseguros.es|' \
+       -e 's|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=https://panelformacion.belsueseguros.es|' \
+       -e 's|^NEXTAUTH_URL=.*|NEXTAUTH_URL=https://panelformacion.belsueseguros.es|' .env.local
+bash /opt/belsue/arrancar-app.sh
+```
+
+Las variables se leen al **crear** el contenedor: cambiar el fichero no basta, hay que
+relanzarlo. Para comprobar lo que tiene por dentro: `docker exec belsue-app env | grep SUPABASE`.
+
+### El middleware y el proxy
+
+Detrás de un proxy, `request.url` devuelve la dirección de escucha de Next
+(`localhost:3000`) y no el dominio público — **incluso recibiendo la cabecera `Host`
+correcta**. Todas las redirecciones sacaban al usuario fuera del sitio.
+
+No tiene arreglo desde Caddy. Se corrigió en `middleware.ts` (commit `b31b76f`)
+construyendo la URL desde `x-forwarded-host` y `x-forwarded-proto`. En Vercel no cambia
+nada, porque allí esas cabeceras ya llegaban bien.
+
+Prueba que aísla el problema, por si vuelve a pasar con otra ruta:
+
+```bash
+curl -s -o /dev/null -w "%{http_code} -> %{redirect_url}\n" \
+  -H "Host: panelformacion.belsueseguros.es" -H "X-Forwarded-Proto: https" \
+  http://127.0.0.1:3000/
+```
+
+Si con el `Host` correcto sigue respondiendo `localhost`, es la aplicación y no el proxy.
+
+### Detalle al parar la aplicación
+
+`docker stop belsue-app` deja el contenedor como `Exited (1)`, no `(0)`: npm no traduce
+bien la señal de parada. **No es un fallo.** Y `--restart unless-stopped` no la relanza
+después, porque se paró a mano — hay que arrancarla explícitamente.
+
+---
+
+## Acceso por túnel (ya no hace falta)
 
 Los puertos 3000 y 8000 están cerrados a internet. Se entra por túnel SSH, **desde tu PC**
 (el prompt tiene que empezar por `PS C:\`, no por `root@ubuntu`):
@@ -338,10 +418,14 @@ Contar filas no basta. Hay que comprobar tres cosas en el navegador:
 
 ## Lo que queda pendiente
 
-- [ ] **HTTPS y subdominio** (`panelformacion.belsueseguros.es`, CNAME en IONOS). Mientras
-      dependa del túnel SSH, solo puede entrar quien tenga acceso al servidor
-- [ ] **Contratar las copias de seguridad del VPS** — en IONOS van aparte, y es lo único de
-      esta lista que, si falla, cuesta los documentos. Restaurar una y comprobar que el
-      chat encuentra cosas: una copia sin probar no es una copia
-- [ ] **Segunda pasada de datos** el día del cambio: producción sigue creciendo mientras
-      tanto, y la copia de hoy envejece
+- [ ] **Contratar las copias de seguridad del VPS.** En IONOS van aparte. Ahora que esto es
+      producción, es lo único que separa a la correduría de perder 344 documentos.
+      Restaurar una y comprobar que el chat encuentra cosas: una copia sin probar no es
+      una copia
+- [ ] **Cerrar la instalación antigua.** `agente-belsue-ia.vercel.app` sigue viva y
+      apuntando a la Supabase en la nube, con datos que ya no son los buenos. Quien entre
+      por ahí trabajará sobre la base equivocada sin enterarse. Quitar el dominio del
+      proyecto de Vercel y pausar el despliegue
+- [ ] **Rotar la `SERVICE_ROLE_KEY` de producción**, que quedó expuesta durante el montaje
+- [ ] **Revisar el plan de Vercel** si se mantiene algo allí: el plan Hobby prohíbe el uso
+      comercial
