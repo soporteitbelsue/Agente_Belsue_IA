@@ -38,14 +38,28 @@ fi
 
 cd "$APP" || exit 1
 
-# Un cambio hecho a mano dentro del servidor haría fallar el pull a mitad y
-# dejaría el código descuadrado. Mejor pararse antes y que se decida qué hacer.
-if [ -n "$(git status --porcelain)" ]; then
-  echo "ERROR: hay cambios sin guardar en $APP:"
-  git status --short
+# Un cambio hecho a mano SOBRE UN FICHERO DEL REPOSITORIO haría fallar el pull a
+# mitad y dejaría el código descuadrado. Mejor pararse antes y que se decida qué
+# hacer con él.
+#
+# Los ficheros que git no sigue (--untracked-files=no) no se miran: un resto
+# suelto en la carpeta no estorba a un fast-forward, y plantarse por eso deja el
+# despliegue bloqueado por algo que no tiene nada que ver.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "ERROR: hay cambios sin guardar en ficheros del repositorio, en $APP:"
+  git status --short --untracked-files=no
   echo ""
   echo "Descártalos (git checkout -- .) o guárdalos antes de actualizar."
   exit 1
+fi
+
+# Los sueltos solo se avisan, para que no se queden ahí para siempre sin que
+# nadie repare en ellos.
+SUELTOS="$(git status --porcelain --untracked-files=normal | grep '^??' || true)"
+if [ -n "$SUELTOS" ]; then
+  echo "Aviso: hay ficheros sueltos que no son del repositorio (no estorban):"
+  echo "$SUELTOS" | sed 's/^/  /'
+  echo ""
 fi
 
 ANTES="$(git rev-parse HEAD)"
