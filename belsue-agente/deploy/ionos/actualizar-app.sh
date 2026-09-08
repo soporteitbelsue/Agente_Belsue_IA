@@ -11,8 +11,13 @@
 #
 # Uso:
 #   bash /opt/belsue/actualizar-app.sh
+#   bash /opt/belsue/actualizar-app.sh --forzar
 #
 # Es seguro relanzarlo: si no hay nada nuevo lo dice y se para sin tocar nada.
+#
+# `--forzar` compila y relanza aunque no haya commits nuevos. Hace falta cuando
+# el código se trajo a mano con `git pull` y nunca llegó a compilarse: el
+# repositorio está al día, pero lo que sirve el portal es el build anterior.
 #
 # Lo que NO hace, a propósito: no toca la base de datos ni los documentos, y no
 # escribe en .env.local. Las variables se cambian a mano (ver README, "Variables
@@ -23,6 +28,17 @@ set -uo pipefail
 APP="/opt/belsue/app"
 DIR="$APP/belsue-agente"
 NODE="node:22"
+
+FORZAR=0
+case "${1:-}" in
+  --forzar|-f) FORZAR=1 ;;
+  "") ;;
+  *)
+    echo "ERROR: no entiendo la opción '${1}'."
+    echo "Uso: bash $0 [--forzar]"
+    exit 1
+    ;;
+esac
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') — actualizando la aplicación ==="
 
@@ -73,16 +89,26 @@ fi
 
 DESPUES="$(git rev-parse HEAD)"
 if [ "$ANTES" = "$DESPUES" ]; then
+  if [ "$FORZAR" = "0" ]; then
+    echo ""
+    echo "No hay nada nuevo que publicar ($(git log -1 --format='%h %s'))."
+    echo "La aplicación sigue en marcha sin tocarla."
+    echo ""
+    echo "Si el código ya estaba al día pero nunca se compiló, el portal sigue"
+    echo "sirviendo el build anterior. Para recompilarlo de todos modos:"
+    echo "  bash $0 --forzar"
+    exit 0
+  fi
   echo ""
-  echo "No hay nada nuevo que publicar ($(git log -1 --format='%h %s'))."
-  echo "La aplicación sigue en marcha sin tocarla."
-  exit 0
+  echo "No hay commits nuevos, pero se recompila porque lo has pedido (--forzar)."
+  echo "Versión: $(git log -1 --format='%h %s')"
+  echo ""
+else
+  echo ""
+  echo "Cambios que entran:"
+  git log --oneline "$ANTES..$DESPUES"
+  echo ""
 fi
-
-echo ""
-echo "Cambios que entran:"
-git log --oneline "$ANTES..$DESPUES"
-echo ""
 
 # --- Dependencias -----------------------------------------------------------
 # Solo si package-lock.json ha cambiado: un npm ci tarda varios minutos y la

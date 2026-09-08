@@ -441,6 +441,22 @@ El orden importa: se compila **antes** de tocar el contenedor. Si el build falla
 aplicación que está sirviendo sigue en pie y nadie se entera; el script dice cómo volver
 el código atrás (`git reset --hard <commit>`).
 
+### Cuando el código ya está al día pero el portal no
+
+Un `git pull` a mano deja el repositorio en la última versión **sin compilar nada**: el
+portal sigue sirviendo el build anterior y el script, al no ver commits nuevos, se sale
+diciendo que no hay nada que publicar. Para ese caso:
+
+```bash
+bash /opt/belsue/actualizar-app.sh --forzar
+```
+
+Compila y relanza aunque no haya commits nuevos. De ahí que convenga **no** hacer `git
+pull` a mano y dejar que sea el script quien lo haga.
+
+Para comprobar desde fuera qué versión sirve el portal, sin entrar al servidor: el nombre
+del fichero CSS que aparece en el HTML de `/login` cambia con cada build.
+
 No toca la base de datos, ni los documentos, ni el `.env.local`. Las variables se cambian
 a mano (ver «Variables al dominio») y hay que relanzar después: se leen al **crear** el
 contenedor.
