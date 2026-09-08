@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import DocumentViewer from "@/components/DocumentViewer";
 import type { Source } from "@/types";
 
 function truncate(text: string, max = 150): string {
@@ -21,8 +22,49 @@ export default function SourceCard({
   hideDownload?: boolean;
 }) {
   const [downloading, setDownloading] = useState(false);
+  const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  // Documento abierto a pantalla completa, igual que en Conocimiento.
+  const [viewer, setViewer] = useState<{ url: string; video: boolean } | null>(
+    null,
+  );
+
+  // Escape cierra el fragmento. El visor que puede haber debajo también lo
+  // escucha, así que una sola pulsación deja la pantalla como estaba.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  /**
+   * Pinchar una fuente abre el documento entero en el visor, que es lo que se
+   * espera de una cita. Si no es de los que el navegador pinta (Word,
+   * PowerPoint, notas sin archivo) se cae al fragmento citado, que siempre lo
+   * tenemos a mano.
+   */
+  async function handleOpen() {
+    if (!source.documentId) {
+      setOpen(true);
+      return;
+    }
+    setOpening(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/documents/${source.documentId}/view`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "No se pudo abrir.");
+      setViewer({ url: data.url as string, video: data.video === true });
+    } catch {
+      setOpen(true);
+    } finally {
+      setOpening(false);
+    }
+  }
 
   async function handleDownload() {
     if (!source.documentId) return;
@@ -72,9 +114,10 @@ export default function SourceCard({
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
-        title="Ver fragmento completo"
-        className="w-full rounded-md border border-gray-200 bg-white p-3 text-left text-xs shadow-sm transition hover:border-belsue/40 hover:shadow"
+        onClick={handleOpen}
+        disabled={opening}
+        title="Abrir el documento"
+        className="w-full rounded-md border border-gray-200 bg-white p-3 text-left text-xs shadow-sm transition hover:border-belsue/40 hover:shadow disabled:opacity-60"
       >
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
           {!hideName && (
@@ -89,21 +132,47 @@ export default function SourceCard({
         </div>
         <p className="text-gray-600">{truncate(source.content)}</p>
         <span className="mt-1 inline-block font-medium text-belsue">
-          Ver más →
+          {opening ? "Abriendo…" : "Abrir documento →"}
         </span>
       </button>
 
-      {source.documentId && !hideDownload && (
-        <div className="mt-1 flex items-center gap-2 text-xs">
-          <DownloadButton />
-          {error && <span className="text-[11px] text-gray-400">{error}</span>}
-        </div>
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+        <button
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-0.5 font-medium text-gray-600 transition hover:border-belsue/40 hover:text-belsue"
+        >
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+          </svg>
+          Ver fragmento
+        </button>
+        {source.documentId && !hideDownload && <DownloadButton />}
+        {error && <span className="text-[11px] text-gray-400">{error}</span>}
+      </div>
+
+      {/* Documento completo a pantalla completa (el visor de PDF). */}
+      {viewer && (
+        <DocumentViewer
+          title={source.documentName}
+          subtitle={source.company ?? undefined}
+          url={viewer.url}
+          video={viewer.video}
+          onClose={() => setViewer(null)}
+          extra={
+            <button
+              onClick={() => setOpen(true)}
+              className="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/20"
+            >
+              Ver fragmento citado
+            </button>
+          }
+        />
       )}
 
-      {/* Modal con el fragmento completo */}
+      {/* Modal con el fragmento completo. Por encima del visor, que ya es z-50. */}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
           onClick={() => setOpen(false)}
         >
           <div
