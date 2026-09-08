@@ -416,6 +416,37 @@ Contar filas no basta. Hay que comprobar tres cosas en el navegador:
 
 ---
 
+## Publicar una versión nueva
+
+Los cambios se suben a `main` desde el puesto de trabajo; el servidor va a buscarlos.
+`actualizar-app.sh` hace de una vez lo que en el Hito 7 se hizo a mano:
+
+```bash
+bash /opt/belsue/actualizar-app.sh
+```
+
+Instalarlo, una sola vez:
+
+```bash
+scp "...\deploy\ionos\actualizar-app.sh" root@31.70.134.101:/opt/belsue/
+chmod +x /opt/belsue/actualizar-app.sh
+```
+
+Qué hace, en orden: se planta si hay cambios sin guardar dentro del servidor, trae el
+código con `git pull --ff-only`, lanza `npm ci` **solo si cambió `package-lock.json`**
+(tarda minutos y casi ningún despliegue toca las dependencias), compila y, si todo ha ido
+bien, relanza el contenedor con `arrancar-app.sh` y comprueba que `/login` responde 200.
+
+El orden importa: se compila **antes** de tocar el contenedor. Si el build falla, la
+aplicación que está sirviendo sigue en pie y nadie se entera; el script dice cómo volver
+el código atrás (`git reset --hard <commit>`).
+
+No toca la base de datos, ni los documentos, ni el `.env.local`. Las variables se cambian
+a mano (ver «Variables al dominio») y hay que relanzar después: se leen al **crear** el
+contenedor.
+
+---
+
 ## Lo que queda pendiente
 
 - [ ] **Contratar las copias de seguridad del VPS.** En IONOS van aparte. Ahora que esto es
