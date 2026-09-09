@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/supabase";
-import { scopeConfig, type AgentScope } from "@/lib/scopes";
+import { categoryLabels } from "@/lib/categoriesServer";
+import { type AgentScope } from "@/lib/scopes";
 
 /**
  * Catálogo del portal: la lista de TODO lo que hay, solo con los nombres.
@@ -39,9 +40,7 @@ export async function buildCatalogue(scope: AgentScope): Promise<string> {
   if (rows.length === 0) return "";
 
   // Agrupado por categoría, que es como se pregunta ("¿qué hay de hogar?").
-  const etiquetas = new Map(
-    scopeConfig(scope).categories.map((c) => [c.value, c.label]),
-  );
+  const etiquetas = await categoryLabels(scope);
   const porCategoria = new Map<string, string[]>();
 
   for (const row of rows) {

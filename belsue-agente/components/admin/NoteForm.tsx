@@ -9,6 +9,7 @@ import {
   scopeConfig,
   type AgentScope,
 } from "@/lib/scopes";
+import { useAllCategories } from "@/components/CategoriesProvider";
 
 type Status = "idle" | "saving" | "success" | "error";
 
@@ -55,10 +56,12 @@ export default function NoteForm({
 
   // Las categorías son las del portal principal: son taxonomías distintas.
   const config = scopeConfig(primaryScope(noteScopes));
+  const allCategories = useAllCategories();
+  const categories = allCategories[primaryScope(noteScopes)];
 
   function changeScopes(next: AgentScope[]) {
     setNoteScopes(next);
-    const stillValid = scopeConfig(primaryScope(next)).categories.some(
+    const stillValid = allCategories[primaryScope(next)].some(
       (c) => c.value === category,
     );
     if (!stillValid) setCategory("general");
@@ -230,7 +233,7 @@ export default function NoteForm({
             disabled={busy}
             className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
           >
-            {config.categories.map((c) => (
+            {categories.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>

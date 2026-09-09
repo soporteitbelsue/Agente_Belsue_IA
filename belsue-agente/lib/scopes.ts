@@ -9,6 +9,10 @@
  *   - 'procedimientos' → Cómo trabajamos por dentro: organización de la
  *                        oficina, circuitos, herramientas, quién hace qué.
  *
+ * Las CATEGORÍAS de cada ámbito ya no están aquí: se administran desde
+ * /admin/categorias y viven en la tabla `categories` (ver lib/categories.ts).
+ * Aquí queda lo que no cambia sin tocar código: los portales y sus textos.
+ *
  * Este módulo es seguro para el cliente (no contiene prompts ni secretos).
  */
 
@@ -56,11 +60,6 @@ export function primaryScope(scopes: AgentScope[]): AgentScope {
   return scopes[0] ?? DEFAULT_SCOPE;
 }
 
-export interface ScopeCategory {
-  value: string;
-  label: string;
-}
-
 export interface ScopeConfig {
   id: AgentScope;
   /** Nombre del asistente en esta pestaña. */
@@ -75,8 +74,6 @@ export interface ScopeConfig {
   welcome: string;
   /** Sugerencias que se muestran al abrir una conversación vacía. */
   suggestions: string[];
-  /** Categorías de documentos y notas propias del ámbito. */
-  categories: ScopeCategory[];
   /**
    * La columna `company` de `documents` se reutiliza en procedimientos como
    * "área/departamento": mismo campo, distinta etiqueta según el ámbito.
@@ -116,17 +113,6 @@ const SEGUROS: ScopeConfig = {
     "Diferencias entre cobertura de terceros y todo riesgo",
     "¿Qué compañía va mejor para un conductor novel?",
   ],
-  categories: [
-    { value: "general", label: "General" },
-    { value: "auto", label: "Auto" },
-    { value: "moto", label: "Moto" },
-    { value: "hogar", label: "Hogar" },
-    { value: "vida", label: "Vida" },
-    { value: "salud", label: "Salud" },
-    { value: "decesos", label: "Decesos" },
-    { value: "viaje", label: "Asistencia en viaje" },
-    { value: "rc", label: "Responsabilidad Civil" },
-  ],
   secondaryField: {
     label: "Compañía aseguradora",
     placeholder: "Ej: Mapfre, Allianz, AXA, Generali...",
@@ -165,18 +151,6 @@ const PROCEDIMIENTOS: ScopeConfig = {
     "¿Qué pasos sigo para dar de alta una póliza nueva?",
     "¿A quién aviso si un cliente reclama un siniestro?",
   ],
-  categories: [
-    { value: "general", label: "General" },
-    { value: "organizacion", label: "Organización y reparto de tareas" },
-    { value: "atencion", label: "Atención al cliente" },
-    { value: "produccion", label: "Nueva producción y cotizaciones" },
-    { value: "polizas", label: "Gestión de pólizas" },
-    { value: "siniestros", label: "Siniestros" },
-    { value: "cobros", label: "Cobros e impagados" },
-    { value: "herramientas", label: "Herramientas y programas" },
-    { value: "personal", label: "Personal y horarios" },
-    { value: "normativa", label: "Normativa y protección de datos" },
-  ],
   secondaryField: {
     label: "Área o responsable",
     placeholder: "Ej: Recepción, Producción, Siniestros, Dirección...",
@@ -214,41 +188,3 @@ export function scopeConfig(scope: unknown): ScopeConfig {
 /** Lista ordenada de ámbitos, para pintar la navegación por pestañas. */
 export const SCOPE_LIST: ScopeConfig[] = AGENT_SCOPES.map((s) => SCOPES[s]);
 
-/** Opciones de categoría con un "Todas" delante, para los filtros. */
-export function categoryFilterOptions(scope: unknown): ScopeCategory[] {
-  return [{ value: "", label: "Todas" }, ...scopeConfig(scope).categories];
-}
-
-/**
- * Color del badge de categoría. Cubre las categorías de todos los ámbitos:
- * las páginas de listado son comunes y no saben de qué ámbito viene cada fila.
- */
-export const CATEGORY_BADGE: Record<string, string> = {
-  // Ramos (seguros)
-  auto: "bg-blue-100 text-blue-700",
-  moto: "bg-orange-100 text-orange-700",
-  hogar: "bg-green-100 text-green-700",
-  vida: "bg-purple-100 text-purple-700",
-  salud: "bg-pink-100 text-pink-700",
-  decesos: "bg-gray-200 text-gray-700",
-  viaje: "bg-teal-100 text-teal-700",
-  rc: "bg-indigo-100 text-indigo-700",
-  general: "bg-belsue/10 text-belsue",
-  // Procedimientos internos
-  organizacion: "bg-amber-100 text-amber-700",
-  atencion: "bg-sky-100 text-sky-700",
-  produccion: "bg-lime-100 text-lime-700",
-  polizas: "bg-cyan-100 text-cyan-700",
-  siniestros: "bg-red-100 text-red-700",
-  cobros: "bg-emerald-100 text-emerald-700",
-  herramientas: "bg-violet-100 text-violet-700",
-  personal: "bg-rose-100 text-rose-700",
-  normativa: "bg-slate-200 text-slate-700",
-};
-
-/** Etiqueta legible de una categoría dentro de su ámbito. */
-export function categoryLabel(scope: unknown, value: string | null): string {
-  if (!value) return "—";
-  const found = scopeConfig(scope).categories.find((c) => c.value === value);
-  return found?.label ?? value;
-}

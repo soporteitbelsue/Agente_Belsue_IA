@@ -10,14 +10,11 @@ import DocumentMetaForm, {
 } from "@/components/admin/DocumentMetaForm";
 import { CardsSkeleton } from "@/components/Skeleton";
 import DocumentViewer from "@/components/DocumentViewer";
+import { parseScope, scopeConfig, type AgentScope } from "@/lib/scopes";
 import {
-  CATEGORY_BADGE,
-  categoryFilterOptions,
-  categoryLabel,
-  parseScope,
-  scopeConfig,
-  type AgentScope,
-} from "@/lib/scopes";
+  useCategoryFilterOptions,
+  useCategoryLookup,
+} from "@/components/CategoriesProvider";
 
 /** Nota o documento: en esta pantalla se tratan igual. */
 interface Item {
@@ -126,6 +123,8 @@ function Modal({
 function ConocimientoContent() {
   const scope = parseScope(useSearchParams().get("scope"));
   const config = scopeConfig(scope);
+  const categoryOptions = useCategoryFilterOptions(scope);
+  const { label: categoryLabel, badge: categoryBadge } = useCategoryLookup();
 
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -351,7 +350,7 @@ function ConocimientoContent() {
           onChange={(e) => setCategory(e.target.value)}
           className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-belsue focus:outline-none"
         >
-          {categoryFilterOptions(scope).map((c) => (
+          {categoryOptions.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
             </option>
@@ -455,11 +454,11 @@ function ConocimientoContent() {
                 </span>
                 {item.category && (
                   <span
-                    className={`rounded px-2 py-0.5 text-xs font-medium ${
-                      CATEGORY_BADGE[item.category] ?? "bg-gray-100 text-gray-600"
-                    }`}
+                    className={`rounded px-2 py-0.5 text-xs font-medium ${categoryBadge(
+                      item.category,
+                    )}`}
                   >
-                    {categoryLabel(scope, item.category)}
+                    {categoryLabel(item.category)}
                   </span>
                 )}
               </div>

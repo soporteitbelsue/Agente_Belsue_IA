@@ -5,12 +5,11 @@ import NoteForm, { type EditableNote } from "@/components/admin/NoteForm";
 import DocumentMetaForm, {
   type EditableDocument,
 } from "@/components/admin/DocumentMetaForm";
+import { SCOPES, SCOPE_LIST, type AgentScope } from "@/lib/scopes";
 import {
-  CATEGORY_BADGE,
-  SCOPES,
-  SCOPE_LIST,
-  type AgentScope,
-} from "@/lib/scopes";
+  useAllCategories,
+  useCategoryLookup,
+} from "@/components/CategoriesProvider";
 import type { Document } from "@/types";
 
 type DocumentListItem = Pick<
@@ -26,30 +25,19 @@ type DocumentListItem = Pick<
   | "created_at"
 > & { chunk_count: number; reindexable: boolean };
 
-/**
- * Categorías de todos los portales (el admin ve el material de ambos). Se
- * agrupan por portal para que se entienda a cuál pertenece cada una.
- */
-const CATEGORY_GROUPS = SCOPE_LIST.map((s) => ({
-  label: s.title,
-  options: s.categories,
-}));
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// Etiqueta legible de cada categoría, de todos los portales.
-const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
-  SCOPE_LIST.flatMap((s) => s.categories.map((c) => [c.value, c.label])),
-);
-
 function CategoryBadge({ category }: { category: string | null }) {
+  // El listado mezcla filas de los dos portales, así que la categoría se busca
+  // por su valor sin saber de cuál viene.
+  const { label: labelOf, badge } = useCategoryLookup();
   if (!category) return <span className="text-gray-400">—</span>;
-  const cls = CATEGORY_BADGE[category] ?? "bg-gray-100 text-gray-600";
-  const label = CATEGORY_LABEL[category] ?? category;
+  const cls = badge(category);
+  const label = labelOf(category);
   return (
     <span className={`whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
       {label}
@@ -98,6 +86,8 @@ function ChunkBadge({ count }: { count: number }) {
 }
 
 export default function DocumentList() {
+  // Categorías de los dos portales: administración ve el material de ambos.
+  const allCategories = useAllCategories();
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -226,10 +216,10 @@ export default function DocumentList() {
             className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-belsue focus:outline-none"
           >
             <option value="">Todas las categorías</option>
-            {CATEGORY_GROUPS.map((g) => (
-              <optgroup key={g.label} label={g.label}>
-                {g.options.map((c) => (
-                  <option key={`${g.label}-${c.value}`} value={c.value}>
+            {SCOPE_LIST.map((s) => (
+              <optgroup key={s.id} label={s.title}>
+                {allCategories[s.id].map((c) => (
+                  <option key={`${s.id}-${c.value}`} value={c.value}>
                     {c.label}
                   </option>
                 ))}
