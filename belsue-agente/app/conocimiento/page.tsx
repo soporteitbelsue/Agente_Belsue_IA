@@ -132,8 +132,12 @@ function ConocimientoContent() {
   const [category, setCategory] = useState("");
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
-  // Carpeta abierta (clave de `folderKey`); null = rejilla de carpetas.
-  const [openFolder, setOpenFolder] = useState<string | null>(null);
+  // Carpeta abierta; null = rejilla de carpetas. Se guarda también el nombre
+  // porque un filtro puede dejarla vacía, y entonces ya no está en `folders`.
+  const [openFolder, setOpenFolder] = useState<{
+    key: string;
+    label: string;
+  } | null>(null);
 
   const [adding, setAdding] = useState(false);
   const [editNote, setEditNote] = useState<EditableNote | null>(null);
@@ -178,11 +182,12 @@ function ConocimientoContent() {
     setCategory("");
   }, [scope]);
 
-  // Al cambiar de portal o de filtro se vuelve a la rejilla: la carpeta que
-  // estaba abierta puede no tener ya nada dentro de lo que se está listando.
+  // Cambiar de portal sí saca de la carpeta: las de un portal no existen en el
+  // otro. Los filtros de tipo y categoría, en cambio, acotan lo que hay dentro
+  // sin echarte fuera, que es como se espera que funcione una carpeta.
   useEffect(() => {
     setOpenFolder(null);
-  }, [scope, category, type]);
+  }, [scope]);
 
   /** Abre el documento a pantalla completa, sin descargarlo. */
   async function ver(item: Item) {
@@ -286,15 +291,25 @@ function ConocimientoContent() {
     });
   }, [items]);
 
-  // Buscar atraviesa las carpetas: quien escribe "novel" quiere el resultado,
-  // no acordarse de en qué carpeta lo guardó.
+  // Dentro de una carpeta se busca EN esa carpeta: si has entrado a Allianz a
+  // propósito, escribir "hogar" no debería devolverte lo de Mapfre. En la
+  // rejilla, donde no hay carpeta abierta, la búsqueda sí atraviesa todo.
   const searching = term.length > 0;
-  const current = folders.find((f) => f.key === openFolder) ?? null;
+  // Una carpeta que un filtro ha dejado vacía ya no aparece en `folders`, pero
+  // se sigue mostrando: expulsar de golpe al elegir "Vida" en la carpeta de
+  // una compañía que no tiene vida es desconcertante.
+  const current = openFolder
+    ? (folders.find((f) => f.key === openFolder.key) ?? {
+        ...openFolder,
+        docs: 0,
+        notes: 0,
+      })
+    : null;
   const showFolders = !searching && !current;
-  const visible = searching
-    ? filtered
-    : current
-      ? filtered.filter((i) => folderKey(i) === current.key)
+  const visible = current
+    ? filtered.filter((i) => folderKey(i) === current.key)
+    : searching
+      ? filtered
       : [];
 
   return (
@@ -331,7 +346,11 @@ function ConocimientoContent() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por título, contenido o compañía…"
+          placeholder={
+            current
+              ? `Buscar en ${current.label}…`
+              : "Buscar por título, contenido o compañía…"
+          }
           className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-belsue focus:outline-none"
         />
         <select
@@ -361,7 +380,7 @@ function ConocimientoContent() {
       {error && <p className="text-sm text-red-500">{error}</p>}
       {loading && <CardsSkeleton />}
 
-      {!loading && current && !searching && (
+      {!loading && current && (
         <div className="flex flex-wrap items-baseline gap-3">
           <button
             onClick={() => setOpenFolder(null)}
@@ -373,12 +392,16 @@ function ConocimientoContent() {
             {current.label}
           </h2>
           <span className="text-sm text-gray-400">
-            {folderSummary(current)}
+            {searching
+              ? `${visible.length} ${
+                  visible.length === 1 ? "resultado" : "resultados"
+                }`
+              : (folderSummary(current) || "nada con este filtro")}
           </span>
         </div>
       )}
 
-      {!loading && searching && (
+      {!loading && searching && !current && (
         <p className="text-sm text-gray-500">
           Resultados de todas las carpetas.
         </p>
@@ -389,7 +412,9 @@ function ConocimientoContent() {
           {folders.map((folder) => (
             <button
               key={folder.key}
-              onClick={() => setOpenFolder(folder.key)}
+              onClick={() =>
+                setOpenFolder({ key: folder.key, label: folder.label })
+              }
               className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-belsue hover:shadow-md"
             >
               <svg
