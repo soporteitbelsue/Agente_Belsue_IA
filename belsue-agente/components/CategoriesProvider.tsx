@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -18,10 +19,14 @@ import type { AgentScope } from "@/lib/scopes";
 /**
  * Las categorías, disponibles en toda la aplicación.
  *
- * Llegan ya cargadas desde el layout (servidor), así que no hay parpadeo ni
- * una petición más al abrir cada página. `refresh()` las vuelve a pedir por
- * la API: lo usa el panel de administración para que un cambio se vea al
- * momento, sin recargar la pestaña.
+ * Llegan ya cargadas desde el layout (servidor), así que no hay parpadeo al
+ * pintar. A partir de ahí se refrescan solas: al montar y cada vez que la
+ * pestaña vuelve a primer plano.
+ *
+ * Esto último no es un adorno. La lista la comparte toda la oficina: quien
+ * cree una categoría lo hace en su pestaña, y las demás —abiertas desde antes,
+ * quizá en otro ordenador— se quedaban con la lista de cuando se cargaron.
+ * "La he creado y no me sale" era exactamente eso.
  */
 
 interface CategoriesValue {
@@ -56,6 +61,23 @@ export default function CategoriesProvider({
       // vieja que un desplegable vacío.
     }
   }, []);
+
+  // Al montar y al volver a la pestaña. Volver de administración de crear una
+  // categoría es justo un cambio de foco, así que el caso normal queda cubierto
+  // sin que nadie tenga que recargar nada.
+  useEffect(() => {
+    refresh();
+
+    const alVolver = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    window.addEventListener("focus", alVolver);
+    return () => {
+      document.removeEventListener("visibilitychange", alVolver);
+      window.removeEventListener("focus", alVolver);
+    };
+  }, [refresh]);
 
   const value = useMemo<CategoriesValue>(
     () => ({
