@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import NoteForm, { type EditableNote } from "@/components/admin/NoteForm";
@@ -61,6 +61,36 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * Carpetas del panel. Agrupan por la compañía (o el área, en procedimientos)
+ * que se escribe a mano en cada documento y nota: el campo ya existía, esto
+ * solo lo pinta como carpeta. Es organización visual nuestra — el agente sigue
+ * viendo el mismo conocimiento y no se entera de las carpetas.
+ */
+const NO_FOLDER = "__sin_asignar__";
+
+interface Folder {
+  key: string;
+  label: string;
+  docs: number;
+  notes: number;
+}
+
+/** Clave de agrupado: sin espacios ni mayúsculas, para que "AXA" y "axa" caigan juntas. */
+function folderKey(item: Item): string {
+  const raw = (item.company ?? "").trim();
+  return raw ? raw.toLowerCase() : NO_FOLDER;
+}
+
+function folderSummary(folder: Folder): string {
+  const parts: string[] = [];
+  if (folder.docs > 0)
+    parts.push(`${folder.docs} ${folder.docs === 1 ? "documento" : "documentos"}`);
+  if (folder.notes > 0)
+    parts.push(`${folder.notes} ${folder.notes === 1 ? "nota" : "notas"}`);
+  return parts.join(" · ");
+}
+
 /** Ventana con fondo oscuro, para los formularios y las confirmaciones. */
 function Modal({
   onClose,
@@ -103,6 +133,8 @@ function ConocimientoContent() {
   const [category, setCategory] = useState("");
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
+  // Carpeta abierta (clave de `folderKey`); null = rejilla de carpetas.
+  const [openFolder, setOpenFolder] = useState<string | null>(null);
 
   const [adding, setAdding] = useState(false);
   const [editNote, setEditNote] = useState<EditableNote | null>(null);
@@ -146,6 +178,12 @@ function ConocimientoContent() {
   useEffect(() => {
     setCategory("");
   }, [scope]);
+
+  // Al cambiar de portal o de filtro se vuelve a la rejilla: la carpeta que
+  // estaba abierta puede no tener ya nada dentro de lo que se está listando.
+  useEffect(() => {
+    setOpenFolder(null);
+  }, [scope, category, type]);
 
   /** Abre el documento a pantalla completa, sin descargarlo. */
   async function ver(item: Item) {
@@ -227,6 +265,39 @@ function ConocimientoContent() {
       )
     : items;
 
+  const folders = useMemo(() => {
+    const map = new Map<string, Folder>();
+    for (const item of items) {
+      const key = folderKey(item);
+      const folder = map.get(key) ?? {
+        key,
+        label: key === NO_FOLDER ? "Sin asignar" : (item.company ?? "").trim(),
+        docs: 0,
+        notes: 0,
+      };
+      if (item.file_type === "nota") folder.notes += 1;
+      else folder.docs += 1;
+      map.set(key, folder);
+    }
+    return [...map.values()].sort((a, b) => {
+      // "Sin asignar" al final: es el cajón de lo que falta por colocar.
+      if (a.key === NO_FOLDER) return 1;
+      if (b.key === NO_FOLDER) return -1;
+      return a.label.localeCompare(b.label, "es");
+    });
+  }, [items]);
+
+  // Buscar atraviesa las carpetas: quien escribe "novel" quiere el resultado,
+  // no acordarse de en qué carpeta lo guardó.
+  const searching = term.length > 0;
+  const current = folders.find((f) => f.key === openFolder) ?? null;
+  const showFolders = !searching && !current;
+  const visible = searching
+    ? filtered
+    : current
+      ? filtered.filter((i) => folderKey(i) === current.key)
+      : [];
+
   return (
     <div className="mx-auto w-full max-w-[1700px] space-y-6 overflow-y-auto px-4 py-6 sm:px-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -291,21 +362,81 @@ function ConocimientoContent() {
       {error && <p className="text-sm text-red-500">{error}</p>}
       {loading && <CardsSkeleton />}
 
-      {!loading && filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 py-16 text-center">
-          <svg className="mb-3 h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-          </svg>
-          <p className="text-sm text-gray-500">
-            {items.length === 0
-              ? "Todavía no hay nada aquí. Añade la primera nota o sube un documento."
-              : "No hay resultados para esa búsqueda."}
-          </p>
+      {!loading && current && !searching && (
+        <div className="flex flex-wrap items-baseline gap-3">
+          <button
+            onClick={() => setOpenFolder(null)}
+            className="text-sm font-medium text-belsue hover:underline"
+          >
+            ← Todas las carpetas
+          </button>
+          <h2 className="text-lg font-semibold text-gray-800">
+            {current.label}
+          </h2>
+          <span className="text-sm text-gray-400">
+            {folderSummary(current)}
+          </span>
         </div>
       )}
 
+      {!loading && searching && (
+        <p className="text-sm text-gray-500">
+          Resultados de todas las carpetas.
+        </p>
+      )}
+
+      {!loading && showFolders && folders.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          {folders.map((folder) => (
+            <button
+              key={folder.key}
+              onClick={() => setOpenFolder(folder.key)}
+              className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-belsue hover:shadow-md"
+            >
+              <svg
+                className={`h-9 w-9 shrink-0 ${
+                  folder.key === NO_FOLDER ? "text-gray-300" : "text-belsue"
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
+                />
+              </svg>
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-gray-800">
+                  {folder.label}
+                </span>
+                <span className="block text-xs text-gray-500">
+                  {folderSummary(folder)}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!loading &&
+        (showFolders ? folders.length === 0 : visible.length === 0) && (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 py-16 text-center">
+            <svg className="mb-3 h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+            </svg>
+            <p className="text-sm text-gray-500">
+              {items.length === 0
+                ? "Todavía no hay nada aquí. Añade la primera nota o sube un documento."
+                : "No hay resultados para esa búsqueda."}
+            </p>
+          </div>
+        )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {filtered.map((item) => (
+        {visible.map((item) => (
           <div
             key={item.id}
             className="flex flex-col rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
