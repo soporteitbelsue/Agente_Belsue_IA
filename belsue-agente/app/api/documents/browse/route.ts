@@ -3,6 +3,7 @@ import { CONTACTS_CATEGORY } from "@/lib/contacts";
 import { getServerSession } from "next-auth";
 import { supabaseServer } from "@/lib/supabase";
 import { authOptions } from "@/lib/authOptions";
+import { isOpenEditScope } from "@/lib/auth";
 import { parseScope, parseScopes } from "@/lib/scopes";
 
 export const runtime = "nodejs";
@@ -83,6 +84,8 @@ export async function GET(req: NextRequest) {
     const items = ((data ?? []) as unknown as Row[]).map((d) => {
       const isNote = d.file_type === "nota";
       const isAuthor = !!d.created_by && d.created_by === userId;
+      // En los portales abiertos (El Formador) todo el equipo edita y borra.
+      const openEdit = isOpenEditScope(d.scopes);
       return {
         id: d.id,
         name: d.name,
@@ -97,9 +100,10 @@ export async function GET(req: NextRequest) {
         created_at: d.created_at,
         author: d.users?.name ?? null,
         downloadable: !isNote && isStoragePath(d.file_path),
-        // Las notas las mantiene todo el equipo; los documentos, administración.
-        can_edit: isNote || isAdmin,
-        can_delete: isNote ? isAdmin || isAuthor : isAdmin,
+        // Las notas las mantiene todo el equipo; los documentos, administración,
+        // salvo en los portales abiertos, donde cualquiera edita y borra.
+        can_edit: isNote || isAdmin || openEdit,
+        can_delete: isAdmin || openEdit || (isNote && isAuthor),
       };
     });
 

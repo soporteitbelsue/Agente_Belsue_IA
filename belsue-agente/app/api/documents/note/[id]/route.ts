@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { supabaseServer } from "@/lib/supabase";
 import { authOptions } from "@/lib/authOptions";
+import { isOpenEditScope } from "@/lib/auth";
 import { getSessionUserId } from "@/lib/conversations";
 import { processAndStoreText } from "@/lib/embeddings";
 import { AGENT_SCOPES, parseScopes, primaryScope } from "@/lib/scopes";
@@ -137,8 +138,8 @@ export async function PATCH(
  * DELETE /api/documents/note/{id} — borra una nota de conocimiento.
  *
  * Puede borrarla quien la escribió (deshacer lo propio) y cualquier
- * administrador. Editar sigue abierto a todo el equipo, pero borrar el aporte
- * de otro no: eso destruye trabajo ajeno sin dejar rastro.
+ * administrador. En los portales abiertos (El Formador), además, cualquier
+ * usuario: allí el conocimiento lo mantiene todo el equipo.
  *
  * Los fragmentos indexados caen en cascada. Las notas no tienen archivo, así
  * que no hay nada que limpiar en Storage.
@@ -157,7 +158,7 @@ export async function DELETE(
 
   const { data: note, error: findError } = await supabase
     .from("documents")
-    .select("id, created_by")
+    .select("id, created_by, scopes")
     .eq("id", params.id)
     .eq("file_type", "nota")
     .maybeSingle();
@@ -170,7 +171,7 @@ export async function DELETE(
   }
 
   const isAdmin = session.user.role === "admin";
-  if (!isAdmin && note.created_by !== userId) {
+  if (!isAdmin && note.created_by !== userId && !isOpenEditScope(note.scopes)) {
     return NextResponse.json(
       { error: "Solo puedes borrar las notas que has escrito tú." },
       { status: 403 },

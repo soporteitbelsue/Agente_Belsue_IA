@@ -240,7 +240,8 @@ function ConocimientoContent() {
     setDeleting(true);
     setError(null);
     // Las notas y los documentos se borran por rutas distintas: la de notas
-    // deja borrar al autor, la de documentos es solo de administración.
+    // deja borrar al autor; la de documentos, a administración (y a todos en
+    // El Formador). El servidor decide y lo indica en can_delete.
     const url =
       deleteTarget.file_type === "nota"
         ? `/api/documents/note/${deleteTarget.id}`

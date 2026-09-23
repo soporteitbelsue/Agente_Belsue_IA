@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth";
+import { requireDocumentManager } from "@/lib/auth";
 import { removeFile, downloadFile } from "@/lib/storage";
 import { processAndStoreBuffer } from "@/lib/embeddings";
 import { AGENT_SCOPES, parseScopes, primaryScope } from "@/lib/scopes";
@@ -31,13 +31,27 @@ const updateSchema = z
 /**
  * PATCH /api/documents/{id} — edita los metadatos de un documento (nombre,
  * descripción, compañía, categoría, portales) y regenera su fragmento de
- * cabecera para que el cambio se refleje en la búsqueda. Solo admin.
+ * cabecera para que el cambio se refleje en la búsqueda. Administración, o
+ * cualquier usuario si el documento es de un portal abierto (El Formador).
  */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const unauthorized = await requireAdmin();
+  const supabase = supabaseServer();
+
+  const { data: current, error: currentError } = await supabase
+    .from("documents")
+    .select("scopes")
+    .eq("id", params.id)
+    .maybeSingle();
+  if (currentError) {
+    return NextResponse.json({ error: currentError.message }, { status: 500 });
+  }
+  if (!current) {
+    return NextResponse.json({ error: "Documento no encontrado." }, { status: 404 });
+  }
+  const unauthorized = await requireDocumentManager(current.scopes);
   if (unauthorized) return unauthorized;
 
   let body: z.infer<typeof updateSchema>;
@@ -54,8 +68,6 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
-
-  const supabase = supabaseServer();
 
   const fields: Record<string, unknown> = {};
   if (body.name !== undefined) fields.name = body.name;
@@ -102,22 +114,20 @@ export async function PATCH(
 /**
  * DELETE /api/documents/{id}
  * Borra el documento de Supabase (los chunks se eliminan en cascada)
- * y elimina el archivo físico del disco.
+ * y elimina el archivo físico del disco. Administración, o cualquier usuario
+ * si el documento es de un portal abierto (El Formador).
  */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const unauthorized = await requireAdmin();
-  if (unauthorized) return unauthorized;
-
   try {
     const supabase = supabaseServer();
 
     // Recupera la ruta del archivo antes de borrar el registro.
     const { data: doc, error: fetchError } = await supabase
       .from("documents")
-      .select("file_path")
+      .select("file_path, scopes")
       .eq("id", params.id)
       .maybeSingle();
 
@@ -131,6 +141,9 @@ export async function DELETE(
         { status: 404 },
       );
     }
+
+    const unauthorized = await requireDocumentManager(doc.scopes);
+    if (unauthorized) return unauthorized;
 
     // Borra el registro (los document_chunks caen por ON DELETE CASCADE).
     const { error: deleteError } = await supabase
