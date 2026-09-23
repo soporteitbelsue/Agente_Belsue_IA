@@ -34,7 +34,7 @@ export default async function RootLayout({
 
   return (
     <html lang="es">
-      <body className="flex h-screen flex-col bg-white text-[#1a1a1a] antialiased">
+      <body className="flex h-screen flex-col text-gray-800 antialiased">
         <SessionWrapper>
           <CategoriesProvider initial={categories}>
             {/* El botón de fuentes vive en la cabecera y el panel en el chat. */}

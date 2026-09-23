@@ -432,7 +432,7 @@ export default function ChatWindow({
 
           <form
             onSubmit={handleSubmit}
-            className="sticky bottom-0 flex flex-col gap-1 border-t border-gray-200 bg-white py-3"
+            className="sticky bottom-0 flex flex-col gap-1 py-4"
           >
             <div className="flex items-end gap-2">
             <textarea
@@ -446,13 +446,13 @@ export default function ChatWindow({
                   ? "Escribe tu consulta… (Enter envía, Shift+Enter salta de línea)"
                   : "Escribe tu consulta… (Enter salta de línea, Ctrl+Enter envía)"
               }
-              className="max-h-40 flex-1 resize-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm leading-5 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+              className="glass max-h-40 flex-1 resize-none rounded-2xl border border-gray-300/60 px-4 py-3 text-sm leading-5 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
               disabled={isLoading}
             />
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
-              className="flex h-11 shrink-0 items-center rounded-xl bg-belsue px-5 text-sm font-medium text-white transition hover:bg-belsue-700 disabled:opacity-40"
+              className="flex h-12 shrink-0 items-center rounded-2xl bg-belsue px-5 text-sm font-medium text-white transition hover:bg-belsue-700 disabled:opacity-40"
             >
               {isLoading ? "…" : "Enviar"}
             </button>

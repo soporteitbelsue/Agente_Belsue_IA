@@ -80,8 +80,19 @@ function PortalCard({
     <Link
       href={href}
       style={{ animationDelay: `${index * 0.09}s` }}
-      className="animate-rise group flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5 transition duration-200 hover:-translate-y-1 hover:shadow-xl hover:ring-belsue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-belsue"
+      className="glass animate-rise group relative flex flex-col overflow-hidden rounded-2xl border border-white/5 p-6 transition duration-200 hover:-translate-y-1 hover:border-belsue/50 focus:outline-none focus-visible:border-ember"
     >
+      {/* Filo de luz arriba y resplandor de esquina, que se encienden al
+          pasar por encima. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-belsue to-transparent opacity-50 transition duration-300 group-hover:via-ember group-hover:opacity-100"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-belsue/20 opacity-0 blur-3xl transition duration-500 group-hover:opacity-100"
+      />
+
       {/* El icono se inclina y crece un poco al pasar por encima. */}
       <span className="inline-block transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
         {icon}
@@ -131,7 +142,7 @@ export default async function HomePage() {
   const firstName = session.user.name?.trim().split(/\s+/)[0];
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto bg-belsue-50/50">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
       {/* Formas de fondo, muy tenues: dan color y movimiento sin restar
           legibilidad ni competir con las tarjetas. Los desfases negativos
           arrancan cada una en un punto distinto de su recorrido, para que no
@@ -166,7 +177,7 @@ export default async function HomePage() {
               animationDelay: dot.delay,
               animationDuration: dot.duration,
             }}
-            className="animate-float-twinkle absolute rounded-full bg-belsue/40"
+            className={`animate-float-twinkle absolute rounded-full ${i % 2 ? "bg-ember/60 shadow-[0_0_10px_rgb(var(--ember))]" : "bg-belsue/60 shadow-[0_0_10px_rgb(var(--belsue))]"}`}
           />
         ))}
       </div>
@@ -174,7 +185,7 @@ export default async function HomePage() {
       <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-12">
         <div className="animate-rise mb-10 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-            {firstName ? `Hola, ${firstName}` : "Hola"}
+            Hola{firstName && <>, <span className="text-glow">{firstName}</span></>}
           </h1>
           <p className="mx-auto mt-2 max-w-2xl text-sm text-gray-500 sm:text-base">
             ¿Con qué quieres trabajar hoy? Cada portal tiene su propia
@@ -196,7 +207,7 @@ export default async function HomePage() {
               icon={
                 <PortalLogo
                   scope={portal.id}
-                  className="h-14 w-14 rounded-2xl bg-belsue-50 p-1.5 ring-1 ring-belsue/10"
+                  className="glow-ring h-14 w-14 rounded-2xl bg-[#fff] p-1.5"
                 />
               }
             />
@@ -216,7 +227,7 @@ export default async function HomePage() {
               icon={
                 <PortalLogo
                   scope="admin"
-                  className="h-14 w-14 rounded-2xl bg-gray-100 p-1.5 ring-1 ring-black/5"
+                  className="glow-ring h-14 w-14 rounded-2xl bg-[#fff] p-1.5"
                 />
               }
             />

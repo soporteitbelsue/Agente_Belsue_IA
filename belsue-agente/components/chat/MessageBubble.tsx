@@ -40,7 +40,7 @@ export default function MessageBubble({
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-belsue bg-belsue px-4 py-2.5 text-sm text-white">
+        <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-belsue px-4 py-2.5 text-sm text-white shadow-[0_8px_24px_-10px_rgb(var(--belsue))]">
           {message.content}
         </div>
       </div>
@@ -80,7 +80,7 @@ export default function MessageBubble({
   return (
     <div className="flex justify-start">
       <div className="max-w-[80%] space-y-2">
-        <div className="rounded-2xl rounded-bl-sm bg-[#F5F5F5] px-4 py-2.5 text-gray-800">
+        <div className="glass rounded-2xl rounded-bl-sm px-4 py-2.5 text-gray-800">
           {isStreaming && message.content === "" ? (
             <ThinkingDots />
           ) : (

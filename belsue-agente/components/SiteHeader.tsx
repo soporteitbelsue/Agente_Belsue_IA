@@ -41,8 +41,8 @@ function NavTab({
       aria-current={active ? "page" : undefined}
       className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
         active
-          ? "bg-white text-belsue shadow-sm"
-          : "text-white/90 hover:bg-white/15 hover:text-white"
+          ? "bg-belsue text-white"
+          : "text-gray-500 hover:bg-white/10 hover:text-white"
       }`}
     >
       {children}
@@ -76,7 +76,7 @@ function HeaderInner() {
   const inAdmin = pathname.startsWith("/admin");
 
   return (
-    <header className="bg-belsue text-white shadow-sm">
+    <header className="header-glow z-30 text-white">
       {/* A todo el ancho, no centrada: el contenido de la aplicación (barra
           lateral, conversación y panel de fuentes) también ocupa toda la
           pantalla, y una cabecera estrecha dejaba los lados vacíos.
@@ -151,7 +151,7 @@ function HeaderInner() {
                 title="Ver de dónde sale la respuesta"
                 className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
                   sources.open
-                    ? "bg-white text-belsue shadow-sm"
+                    ? "bg-belsue text-white"
                     : "bg-white/15 text-white hover:bg-white/25"
                 }`}
               >
@@ -162,7 +162,7 @@ function HeaderInner() {
                 <span
                   className={`rounded-full px-1.5 text-xs font-semibold ${
                     sources.open
-                      ? "bg-belsue/10 text-belsue"
+                      ? "bg-white/20 text-white"
                       : "bg-white/20 text-white"
                   }`}
                 >
@@ -191,7 +191,7 @@ function HeaderInner() {
               title="Cambiar mi contraseña"
               className="flex items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-white/15"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold">
+              <span className="glow-ring flex h-8 w-8 items-center justify-center rounded-full bg-belsue-100 text-xs font-bold">
                 {initials(user.name ?? "?")}
               </span>
               <span className="hidden text-sm font-medium lg:inline">

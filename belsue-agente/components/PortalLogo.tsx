@@ -32,7 +32,7 @@ const LOGOS: Record<LogoKey, { src: StaticImageData; fit: string }> = {
 
 export default function PortalLogo({
   scope,
-  className = "h-11 w-11 rounded-full bg-white shadow-sm ring-2 ring-white/50",
+  className = "glow-ring h-11 w-11 rounded-full bg-[#fff]",
 }: {
   scope: unknown;
   /** Tamaño, forma y fondo del recuadro que envuelve la imagen. */

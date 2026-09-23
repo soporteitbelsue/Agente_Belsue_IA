@@ -47,15 +47,23 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4">
-      <div className="mb-6 flex flex-col items-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-belsue text-lg font-bold text-white">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
+      {/* Resplandor detrás de la tarjeta. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-[calc(50%-20rem)] top-[calc(50%-20rem)] h-[40rem] w-[40rem] bg-[radial-gradient(circle,rgb(var(--belsue)/0.2),transparent_60%)]"
+      />
+
+      <div className="animate-rise relative mb-7 flex flex-col items-center">
+        <span className="glow-ring flex h-14 w-14 items-center justify-center rounded-full bg-belsue text-xl font-bold text-white">
           B
         </span>
-        <h1 className="mt-3 text-2xl font-bold text-belsue">Asistente Belsué</h1>
+        <h1 className="text-glow mt-4 text-2xl font-bold tracking-tight">
+          Asistente Belsué
+        </h1>
       </div>
 
-      <div className="w-full max-w-[400px] rounded-xl border border-gray-100 bg-white p-6 shadow-lg">
+      <div className="glass animate-rise relative w-full max-w-[400px] rounded-2xl p-7">
         <p className="mb-5 text-center text-sm text-gray-500">
           Inicia sesión para continuar
         </p>
