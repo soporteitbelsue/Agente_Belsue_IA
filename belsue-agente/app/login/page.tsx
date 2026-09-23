@@ -51,7 +51,7 @@ function LoginForm() {
       {/* Resplandor detrás de la tarjeta. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute left-[calc(50%-20rem)] top-[calc(50%-20rem)] h-[40rem] w-[40rem] bg-[radial-gradient(circle,rgb(var(--belsue)/0.2),transparent_60%)]"
+        className="pointer-events-none absolute left-[calc(50%-20rem)] top-[calc(50%-20rem)] h-[40rem] w-[40rem] bg-[radial-gradient(circle,rgb(var(--belsue-bright)/0.22),transparent_60%)]"
       />
 
       <div className="animate-rise relative mb-7 flex flex-col items-center">

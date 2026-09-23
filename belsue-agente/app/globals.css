@@ -3,67 +3,71 @@
 @tailwind utilities;
 
 /* ============================================================
-   Tema "noche": azul muy oscuro, tarjetas de cristal y brillos en
-   granate Belsué y naranja. Todos los colores de Tailwind (gray,
-   belsue, ember y los de estado) leen de aquí en canales RGB, para
-   que funcionen también con opacidad (bg-belsue/10, etc.).
+   Tema claro: fondo gris muy suave, tarjetas blancas y el granate
+   corporativo, con toques de cristal y brillo discretos. Todos los
+   colores de Tailwind (gray, belsue, ember y los de estado) leen de
+   aquí en canales RGB, para que funcionen también con opacidad
+   (bg-belsue/10, etc.). Cambiar el tema = cambiar estos valores.
    ============================================================ */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
   /* Fondo general y superficies */
-  --bg: 7 11 22; /* #070b16 */
-  --surface: 15 21 38; /* tarjetas (lo que antes era bg-white) */
-  --surface-raised: 21 29 51;
-  --field: 10 15 29; /* campos de texto */
+  --bg: 244 245 248; /* #f4f5f8 */
+  --surface: 255 255 255; /* tarjetas (bg-white) */
+  --surface-raised: 255 255 255;
+  --field: 255 255 255; /* campos de texto */
 
-  /* Grises invertidos: 50 = hondo, 900 = casi blanco */
-  --gray-50: 13 19 35;
-  --gray-100: 21 29 51;
-  --gray-200: 32 43 70;
-  --gray-300: 46 59 92;
-  --gray-400: 110 122 153;
-  --gray-500: 140 151 179;
-  --gray-600: 168 178 202;
-  --gray-700: 196 204 222;
-  --gray-800: 224 229 240;
-  --gray-900: 244 246 251;
+  /* Grises (escala fría de Tailwind) */
+  --gray-50: 249 250 251;
+  --gray-100: 243 244 246;
+  --gray-200: 229 231 235;
+  --gray-300: 209 213 219;
+  --gray-400: 156 163 175;
+  --gray-500: 107 114 128;
+  --gray-600: 75 85 99;
+  --gray-700: 55 65 81;
+  --gray-800: 31 41 55;
+  --gray-900: 17 24 39;
 
-  /* Granate Belsué, avivado para leerse sobre el fondo oscuro */
-  --belsue: 214 52 108; /* #d6346c */
-  --belsue-700: 178 30 84;
-  --belsue-50: 38 15 34;
-  --belsue-100: 60 20 46;
+  /* Granate Belsué. El corporativo sirve para todo sobre claro; el
+     "bright" se usa en filos, focos y brillos. */
+  --belsue: 138 12 60; /* #8a0c3c, el corporativo */
+  --belsue-700: 109 10 48; /* hover: un punto más oscuro */
+  --belsue-bright: 176 24 82; /* #b01852: filos, focos y brillos */
+  --belsue-text: 138 12 60; /* texto en granate: el corporativo */
+  --belsue-50: 251 234 240;
+  --belsue-100: 244 198 214;
 
-  /* Naranja de acento */
+  /* Naranja de acento (solo de chispa) */
   --ember: 255 138 61; /* #ff8a3d */
   --ember-500: 245 110 40;
 
-  /* Estados */
-  --red-50: 52 17 27;
-  --red-100: 74 22 34;
-  --red-200: 110 33 48;
-  --red-700: 252 129 129;
-  --green-50: 12 40 30;
-  --green-100: 16 56 40;
-  --green-200: 26 86 58;
-  --green-600: 52 211 120;
-  --green-700: 110 231 160;
-  --green-800: 150 240 185;
-  --amber-50: 45 32 10;
-  --amber-100: 66 46 12;
-  --amber-200: 104 74 20;
-  --amber-300: 146 104 26;
-  --amber-700: 252 196 90;
-  --amber-800: 253 214 140;
-  --yellow-100: 64 55 10;
-  --yellow-800: 250 222 120;
+  /* Estados (los de Tailwind) */
+  --red-50: 254 242 242;
+  --red-100: 254 226 226;
+  --red-200: 254 202 202;
+  --red-700: 185 28 28;
+  --green-50: 240 253 244;
+  --green-100: 220 252 231;
+  --green-200: 187 247 208;
+  --green-600: 22 163 74;
+  --green-700: 21 128 61;
+  --green-800: 22 101 52;
+  --amber-50: 255 251 235;
+  --amber-100: 254 243 199;
+  --amber-200: 253 230 138;
+  --amber-300: 252 211 77;
+  --amber-700: 180 83 9;
+  --amber-800: 146 64 14;
+  --yellow-100: 254 249 195;
+  --yellow-800: 133 77 14;
 
   /* Compatibilidad con los componentes que usan variables sueltas */
   --background: rgb(var(--bg));
   --foreground: rgb(var(--gray-800));
   --color-background-primary: rgb(var(--surface-raised));
-  --color-background-secondary: rgb(var(--gray-50) / 0.7);
+  --color-background-secondary: rgb(var(--gray-50));
 }
 
 html,
@@ -73,11 +77,11 @@ body {
 
 body {
   color: var(--foreground);
-  /* Dos resplandores fijos (granate arriba, naranja abajo) sobre el azul
-     noche: dan profundidad sin moverse ni distraer. */
+  /* Dos resplandores fijos y muy tenues (granate arriba, un toque cálido
+     abajo): dan calidez al gris sin moverse ni distraer. */
   background:
-    radial-gradient(60rem 40rem at 8% -10%, rgb(var(--belsue) / 0.16), transparent 60%),
-    radial-gradient(50rem 36rem at 105% 110%, rgb(var(--ember) / 0.1), transparent 60%),
+    radial-gradient(60rem 40rem at 8% -10%, rgb(var(--belsue) / 0.07), transparent 60%),
+    radial-gradient(50rem 36rem at 105% 110%, rgb(var(--ember) / 0.06), transparent 60%),
     rgb(var(--bg));
   background-attachment: fixed;
   /* Cursor de flecha por defecto: evita que aparezca la "rayita de escribir"
@@ -86,8 +90,7 @@ body {
 }
 
 ::selection {
-  background: rgb(var(--belsue) / 0.45);
-  color: #fff;
+  background: rgb(var(--belsue) / 0.18);
 }
 
 /* Barras de desplazamiento finas y oscuras. */
@@ -143,64 +146,79 @@ button:disabled,
   background-color: rgb(var(--surface) / var(--tw-bg-opacity, 1));
 }
 
-/* Los bordes finos casi negros no se verían: pasan a un filo claro. */
-.ring-black\/5,
-.ring-black\/10 {
-  --tw-ring-color: rgb(255 255 255 / 0.07);
-}
-
-/* Relleno de acento: el granate lleva un velo naranja en diagonal, como un
-   brillo. Es una imagen encima del color, así el hover:bg-belsue-700 sigue
-   funcionando por debajo. */
+/* Relleno de acento: granate corporativo con una luz suave arriba a la
+   izquierda, como un satinado. Es una imagen encima del color, así el
+   hover:bg-belsue-700 sigue funcionando por debajo. */
 .bg-belsue {
   background-image: linear-gradient(
-    135deg,
-    transparent 30%,
-    rgb(var(--ember) / 0.38) 130%
+    150deg,
+    rgb(255 255 255 / 0.14),
+    transparent 55%
   );
 }
 
-/* Los botones de acento, además, brillan. */
+/* Los botones de acento, además, tienen un halo granate suave. */
 button.bg-belsue,
 a.bg-belsue {
   box-shadow:
-    0 0 0 1px rgb(var(--belsue) / 0.5),
-    0 6px 22px -8px rgb(var(--belsue) / 0.9);
+    inset 0 1px 0 rgb(255 255 255 / 0.15),
+    0 6px 18px -8px rgb(var(--belsue) / 0.7);
 }
 button.bg-belsue:not(:disabled):hover,
 a.bg-belsue:hover {
   box-shadow:
-    0 0 0 1px rgb(var(--ember) / 0.45),
-    0 8px 28px -6px rgb(var(--belsue) / 1);
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 10px 26px -8px rgb(var(--belsue) / 0.8);
+}
+
+/* Texto granate y filos: salen de variables propias para poder
+   separarlos del relleno si el tema vuelve a ser oscuro. */
+.text-belsue,
+.hover\:text-belsue:hover,
+.group:hover .group-hover\:text-belsue {
+  color: rgb(var(--belsue-text));
+}
+.border-belsue,
+.hover\:border-belsue:hover,
+.focus\:border-belsue:focus {
+  border-color: rgb(var(--belsue-bright));
+}
+.ring-belsue,
+.focus\:ring-belsue:focus,
+.focus-visible\:ring-belsue:focus-visible {
+  --tw-ring-color: rgb(var(--belsue-bright));
+}
+.accent-belsue {
+  accent-color: rgb(var(--belsue-bright));
 }
 
 /* Foco de los campos: el anillo granate se acompaña de un halo. */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  box-shadow: 0 0 0 3px rgb(var(--belsue) / 0.18);
+  box-shadow: 0 0 0 3px rgb(var(--belsue-bright) / 0.22);
 }
 
 /* Tarjeta de cristal: fondo translúcido, filo claro y un brillo en el
    borde superior. Para paneles destacados (login, portales). */
 .glass {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.01)),
-    rgb(var(--surface) / 0.72);
+  background: rgb(var(--surface) / 0.82);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.06),
-    0 0 0 1px rgb(255 255 255 / 0.06),
-    0 20px 50px -20px rgb(0 0 0 / 0.7);
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 0 0 1px rgb(15 23 42 / 0.06),
+    0 14px 36px -18px rgb(15 23 42 / 0.25);
 }
 
-/* Cabecera: cristal oscuro con una línea de luz granate→naranja abajo. */
+/* Cabecera: barra granate corporativa, satinada, con una línea de luz
+   abajo que solo al final se calienta hacia el naranja. */
 .header-glow {
   position: relative;
-  background: rgb(var(--bg) / 0.72);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  background:
+    linear-gradient(100deg, rgb(255 255 255 / 0.1), transparent 45%),
+    rgb(var(--belsue));
+  box-shadow: 0 4px 18px -8px rgb(var(--belsue) / 0.6);
 }
 .header-glow::after {
   content: "";
@@ -210,23 +228,22 @@ select:focus-visible {
   background: linear-gradient(
     90deg,
     transparent,
-    rgb(var(--belsue) / 0.9) 25%,
-    rgb(var(--ember) / 0.9) 75%,
+    rgb(255 255 255 / 0.35) 25%,
+    rgb(var(--ember) / 0.7) 85%,
     transparent
   );
-  box-shadow: 0 0 12px 1px rgb(var(--belsue) / 0.5);
 }
 
 /* Aro luminoso para logos y avatares, como un radar. */
 .glow-ring {
   box-shadow:
-    0 0 0 2px rgb(var(--ember) / 0.75),
-    0 0 18px 2px rgb(var(--belsue) / 0.55);
+    0 0 0 2px rgb(var(--belsue-bright) / 0.55),
+    0 4px 14px -2px rgb(var(--belsue) / 0.35);
 }
 
-/* Texto con degradado granate→naranja, para titulares. */
+/* Texto con degradado granate, para titulares. */
 .text-glow {
-  background: linear-gradient(90deg, rgb(var(--belsue)), rgb(var(--ember)));
+  background: linear-gradient(90deg, rgb(var(--belsue)), rgb(var(--belsue-bright)));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -249,8 +266,7 @@ select:focus-visible {
   height: 1rem;
   margin-left: 2px;
   vertical-align: text-bottom;
-  background-color: rgb(var(--ember));
-  box-shadow: 0 0 8px rgb(var(--ember) / 0.8);
+  background-color: rgb(var(--belsue-text));
   animation: belsue-blink 1s steps(1) infinite;
 }
 

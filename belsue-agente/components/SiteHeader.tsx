@@ -41,8 +41,8 @@ function NavTab({
       aria-current={active ? "page" : undefined}
       className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
         active
-          ? "bg-belsue text-white"
-          : "text-gray-500 hover:bg-white/10 hover:text-white"
+          ? "bg-white text-belsue shadow-sm"
+          : "text-white/85 hover:bg-white/15 hover:text-white"
       }`}
     >
       {children}
@@ -151,7 +151,7 @@ function HeaderInner() {
                 title="Ver de dónde sale la respuesta"
                 className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
                   sources.open
-                    ? "bg-belsue text-white"
+                    ? "bg-white text-belsue shadow-sm"
                     : "bg-white/15 text-white hover:bg-white/25"
                 }`}
               >
@@ -162,7 +162,7 @@ function HeaderInner() {
                 <span
                   className={`rounded-full px-1.5 text-xs font-semibold ${
                     sources.open
-                      ? "bg-white/20 text-white"
+                      ? "bg-belsue/10 text-belsue"
                       : "bg-white/20 text-white"
                   }`}
                 >
@@ -191,7 +191,7 @@ function HeaderInner() {
               title="Cambiar mi contraseña"
               className="flex items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-white/15"
             >
-              <span className="glow-ring flex h-8 w-8 items-center justify-center rounded-full bg-belsue-100 text-xs font-bold">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold ring-1 ring-white/40">
                 {initials(user.name ?? "?")}
               </span>
               <span className="hidden text-sm font-medium lg:inline">

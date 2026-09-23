@@ -80,17 +80,17 @@ function PortalCard({
     <Link
       href={href}
       style={{ animationDelay: `${index * 0.09}s` }}
-      className="glass animate-rise group relative flex flex-col overflow-hidden rounded-2xl border border-white/5 p-6 transition duration-200 hover:-translate-y-1 hover:border-belsue/50 focus:outline-none focus-visible:border-ember"
+      className="glass animate-rise group relative flex flex-col overflow-hidden rounded-2xl border border-white/5 p-6 transition duration-200 hover:-translate-y-1 hover:border-belsue/50 focus:outline-none focus-visible:border-[rgb(var(--belsue-text))]"
     >
       {/* Filo de luz arriba y resplandor de esquina, que se encienden al
           pasar por encima. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-belsue to-transparent opacity-50 transition duration-300 group-hover:via-ember group-hover:opacity-100"
+        className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[rgb(var(--belsue-bright))] to-transparent opacity-60 transition duration-300 group-hover:via-[rgb(var(--belsue-text))] group-hover:opacity-100"
       />
       <span
         aria-hidden
-        className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-belsue/20 opacity-0 blur-3xl transition duration-500 group-hover:opacity-100"
+        className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[rgb(var(--belsue-bright)/0.25)] opacity-0 blur-3xl transition duration-500 group-hover:opacity-100"
       />
 
       {/* El icono se inclina y crece un poco al pasar por encima. */}
@@ -177,7 +177,7 @@ export default async function HomePage() {
               animationDelay: dot.delay,
               animationDuration: dot.duration,
             }}
-            className={`animate-float-twinkle absolute rounded-full ${i % 2 ? "bg-ember/60 shadow-[0_0_10px_rgb(var(--ember))]" : "bg-belsue/60 shadow-[0_0_10px_rgb(var(--belsue))]"}`}
+            className={`animate-float-twinkle absolute rounded-full ${i % 2 ? "bg-[rgb(var(--belsue-text)/0.6)] shadow-[0_0_10px_rgb(var(--belsue-text))]" : "bg-[rgb(var(--belsue-bright)/0.7)] shadow-[0_0_10px_rgb(var(--belsue-bright))]"}`}
           />
         ))}
       </div>

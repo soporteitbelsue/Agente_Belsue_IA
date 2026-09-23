@@ -46,8 +46,8 @@ export default function MetricsChart({ days }: { days: DayMetrics[] }) {
           {
             label: "Consultas",
             data: values,
-            borderColor: "#ff8a3d",
-            backgroundColor: "rgba(214, 52, 108, 0.18)",
+            borderColor: "#8a0c3c",
+            backgroundColor: "rgba(138, 12, 60, 0.1)",
             fill: true,
             tension: 0.3,
             pointRadius: 2,
