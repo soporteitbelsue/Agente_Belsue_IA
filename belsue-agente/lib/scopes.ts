@@ -91,7 +91,7 @@ export interface ScopeConfig {
   /** Textos de la página de conocimiento del equipo. */
   knowledge: { title: string; description: string };
   /** Secciones propias del portal, además de documentos y conocimiento. */
-  extraLinks?: { label: string; href: string }[];
+  extraLinks?: { label: string; href: string; icon: ExtraLinkIcon }[];
 }
 
 const SEGUROS: ScopeConfig = {
@@ -170,8 +170,8 @@ const PROCEDIMIENTOS: ScopeConfig = {
       "Cómo nos organizamos y cómo se hace cada cosa en la oficina, en notas y documentos. El agente los usa para responder. Cualquiera puede añadir.",
   },
   extraLinks: [
-    { label: "Cursos", href: "/procedimientos/cursos" },
-    { label: "Contactos", href: "/procedimientos/contactos" },
+    { label: "Cursos", href: "/procedimientos/cursos", icon: "cursos" },
+    { label: "Contactos", href: "/procedimientos/contactos", icon: "contactos" },
   ],
 };
 
@@ -179,6 +179,9 @@ export const SCOPES: Record<AgentScope, ScopeConfig> = {
   seguros: SEGUROS,
   procedimientos: PROCEDIMIENTOS,
 };
+
+/** Dibujo del botón de cada sección extra (en la barra lateral del chat). */
+export type ExtraLinkIcon = "cursos" | "contactos";
 
 /** Config de un ámbito, tolerando valores desconocidos. */
 export function scopeConfig(scope: unknown): ScopeConfig {
