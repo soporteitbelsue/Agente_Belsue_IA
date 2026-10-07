@@ -251,11 +251,15 @@ export default function ChatWindow({
           for (const evt of events) {
             const dataLine = evt.split("\n").find((l) => l.startsWith("data: "));
             if (!dataLine) continue;
+            let payload;
             try {
-              apply(JSON.parse(dataLine.slice("data: ".length)));
+              payload = JSON.parse(dataLine.slice("data: ".length));
             } catch {
-              /* fragmento incompleto */
+              continue; /* fragmento incompleto */
             }
+            // Fuera del try: un evento "error" del servidor debe llegar al
+            // catch de fuera y mostrarse, no confundirse con un fragmento roto.
+            apply(payload);
           }
         }
 

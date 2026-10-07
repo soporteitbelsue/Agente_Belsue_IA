@@ -323,7 +323,12 @@ export async function POST(req: NextRequest) {
             // valor por defecto. Omitirla mantiene la compatibilidad con
             // cualquier modelo (gpt-4o y posteriores).
             stream: true,
-            ...(offerTools ? { tools: MAIL_TOOLS } : {}),
+            // gpt-5.6-terra no admite herramientas con razonamiento en
+            // /v1/chat/completions (400): hay que desactivarlo al ofrecerlas.
+            // 'none' aún no está en los tipos del SDK, de ahí el cast.
+            ...(offerTools
+              ? { tools: MAIL_TOOLS, reasoning_effort: "none" as unknown as null }
+              : {}),
           });
 
           const toolCalls: { id: string; name: string; args: string }[] = [];
