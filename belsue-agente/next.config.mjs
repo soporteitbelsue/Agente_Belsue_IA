@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["unpdf", "mammoth"],
+    serverComponentsExternalPackages: ["unpdf", "mammoth", "imapflow", "mailparser"],
   },
 };
 
