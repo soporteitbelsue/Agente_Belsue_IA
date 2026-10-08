@@ -56,8 +56,10 @@ function HeaderInner() {
   const { data: session } = useSession();
   const sources = useSources();
 
-  // La página de login no lleva header.
+  // La página de login no lleva header, y las de chat traen la suya propia
+  // (ChatHeader), con la navegación dentro de su menú de opciones.
   if (pathname === "/login") return null;
+  if (SCOPE_LIST.some((s) => pathname === s.path)) return null;
 
   const user = session?.user;
 

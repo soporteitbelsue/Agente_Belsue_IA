@@ -67,6 +67,31 @@ const config: Config = {
           100: v("yellow-100"),
           800: v("yellow-800"),
         },
+        // Pantalla de chat: colores completos (con su opacidad) leídos de
+        // los tokens --ios-* de app/globals.css.
+        ios: {
+          accent: "var(--ios-accent)",
+          "accent-hover": "var(--ios-accent-hover)",
+          bg: "var(--ios-bg)",
+          surface: "var(--ios-surface)",
+          label: "var(--ios-label)",
+          secondary: "var(--ios-secondary)",
+          body: "var(--ios-body)",
+          fill: "var(--ios-fill)",
+          "fill-active": "var(--ios-fill-active)",
+          "fill-hover": "var(--ios-fill-hover)",
+          separator: "var(--ios-separator)",
+          border: "var(--ios-border)",
+          sidebar: "var(--ios-sidebar)",
+        },
+      },
+      borderRadius: {
+        bubble: "var(--ios-radius-bubble)",
+        card: "var(--ios-radius-card)",
+        field: "var(--ios-radius-field)",
+      },
+      boxShadow: {
+        ios: "var(--ios-shadow)",
       },
     },
   },

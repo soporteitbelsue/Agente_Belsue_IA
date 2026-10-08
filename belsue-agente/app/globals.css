@@ -68,6 +68,36 @@
   --foreground: rgb(var(--gray-800));
   --color-background-primary: rgb(var(--surface-raised));
   --color-background-secondary: rgb(var(--gray-50));
+
+  /* ----------------------------------------------------------
+     Tokens de la pantalla de chat (estética tipo iOS). Es el
+     único sitio donde se definen: tailwind.config.ts los expone
+     como clases ios-*. El granate queda como acento: burbuja del
+     usuario, enviar, avatar del asistente e iconos de cabecera.
+     ---------------------------------------------------------- */
+  --ios-accent: #8a0c3c;
+  --ios-accent-hover: #74092f;
+  --ios-bg: #f2f2f7;
+  --ios-surface: #ffffff;
+  --ios-label: #1c1c1e;
+  --ios-secondary: #636366;
+  --ios-body: #3a3a3c;
+  --ios-fill: rgba(120, 120, 128, 0.12);
+  --ios-fill-active: rgba(120, 120, 128, 0.14);
+  --ios-fill-hover: rgba(120, 120, 128, 0.2);
+  --ios-separator: rgba(60, 60, 67, 0.12);
+  --ios-border: rgba(60, 60, 67, 0.16);
+  /* Barras translúcidas: cabecera y caja de entrada sobre el fondo, y la
+     barra lateral sobre blanco. */
+  --ios-bar: rgba(242, 242, 247, 0.8);
+  --ios-sidebar: rgba(255, 255, 255, 0.72);
+  --ios-blur: 24px;
+  --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --ios-radius-bubble: 20px;
+  --ios-radius-card: 14px;
+  --ios-radius-field: 12px;
+  --ios-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 html,
@@ -247,6 +277,32 @@ select:focus-visible {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* ============================================================
+   Pantalla de chat (estética iOS). Todo cuelga de .ios para no
+   alterar el resto de la aplicación.
+   ============================================================ */
+.ios {
+  font-family: var(--ios-font);
+  font-size: 15px;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--ios-label);
+  background: var(--ios-bg);
+}
+
+/* Barra de cristal: cabecera y zona de entrada. */
+.ios-bar {
+  background: var(--ios-bar);
+  -webkit-backdrop-filter: blur(var(--ios-blur));
+  backdrop-filter: blur(var(--ios-blur));
+}
+
+/* Foco visible por teclado en todo lo pulsable. */
+.ios :is(a, button, [role="button"], summary, label):focus-visible {
+  outline: 2px solid var(--ios-accent);
+  outline-offset: 2px;
 }
 
 /* Cursor parpadeante para el streaming del asistente */
