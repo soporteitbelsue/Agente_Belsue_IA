@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import AddKnowledgeModal from "@/components/admin/AddKnowledgeModal";
 import { DEFAULT_SCOPE, type AgentScope } from "@/lib/scopes";
 
@@ -44,9 +45,15 @@ export default function ContributeKnowledge({
         Aportar
       </button>
 
-      {open && (
-        <AddKnowledgeModal scope={scope} onClose={() => setOpen(false)} />
-      )}
+      {/* El modal se monta en <body>: la barra lateral lleva backdrop-filter,
+          y eso encierra cualquier "position: fixed" de dentro, así que sin
+          portal el pop-up quedaba encajado en la barra en vez de cubrir la
+          pantalla. Fuera de .ios conserva también su aspecto de siempre. */}
+      {open &&
+        createPortal(
+          <AddKnowledgeModal scope={scope} onClose={() => setOpen(false)} />,
+          document.body,
+        )}
     </>
   );
 }
