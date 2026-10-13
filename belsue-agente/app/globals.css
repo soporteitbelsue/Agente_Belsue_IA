@@ -79,6 +79,7 @@
   --ios-accent-hover: #74092f;
   --ios-bg: #f2f2f7;
   --ios-surface: #ffffff;
+  --ios-surface-hover: #ebebf0; /* superficie blanca al pasar el ratón */
   --ios-label: #1c1c1e;
   --ios-secondary: #636366;
   --ios-body: #3a3a3c;
@@ -98,6 +99,9 @@
   --ios-radius-card: 14px;
   --ios-radius-field: 12px;
   --ios-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  /* Píldora de entrada: sombra suave y, al escribir, un anillo de acento. */
+  --ios-shadow-raised: 0 2px 10px rgba(0, 0, 0, 0.06);
+  --ios-focus-ring: 0 2px 10px rgba(0, 0, 0, 0.06), 0 0 0 3px rgba(138, 12, 60, 0.18);
 }
 
 html,
@@ -299,6 +303,21 @@ select:focus-visible {
   backdrop-filter: blur(var(--ios-blur));
 }
 
+/* Barra lateral de cristal sobre el fondo gris. */
+.ios-sidebar {
+  background: var(--ios-sidebar);
+  -webkit-backdrop-filter: blur(var(--ios-blur));
+  backdrop-filter: blur(var(--ios-blur));
+}
+
+/* Campo sin caja propia (la pone su contenedor): anula el fondo y el halo
+   que la capa base da a todos los campos. El !important hace falta porque
+   esa regla base lleva tres :not() y gana en especificidad. */
+.ios .ios-plain-field {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
 /* Foco visible por teclado en todo lo pulsable. */
 .ios :is(a, button, [role="button"], summary, label):focus-visible {
   outline: 2px solid var(--ios-accent);
@@ -449,6 +468,28 @@ select:focus-visible {
   animation: belsue-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Mensajes del chat: aparición corta (150 ms), sin rebote. */
+@keyframes ios-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-msg {
+  animation: ios-msg-in 150ms ease-out both;
+}
+
+/* En el chat, el cursor de escritura es una barra fina gris, como en iOS. */
+.ios .streaming-cursor {
+  width: 2px;
+  background-color: var(--ios-secondary);
+}
+
 .animate-slide-in {
   animation: belsue-slide-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -489,6 +530,7 @@ select:focus-visible {
    los elementos aparecen ya en su posición final. */
 @media (prefers-reduced-motion: reduce) {
   .animate-rise,
+  .animate-msg,
   .animate-slide-in,
   .animate-drift,
   .animate-float,

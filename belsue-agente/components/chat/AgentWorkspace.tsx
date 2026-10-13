@@ -33,7 +33,7 @@ function Workspace({ scope }: { scope: AgentScope }) {
   return (
     <div className="ios flex h-full min-h-0">
       {/* Sidebar fijo (desktop) */}
-      <aside className="hidden w-[260px] shrink-0 border-r border-gray-200 md:block">
+      <aside className="ios-sidebar hidden w-[320px] shrink-0 border-r border-ios-separator md:block">
         <ConversationSidebar scope={scope} />
       </aside>
 
@@ -41,10 +41,12 @@ function Workspace({ scope }: { scope: AgentScope }) {
       {drawerOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/30"
             onClick={() => setDrawerOpen(false)}
           />
-          <aside className="absolute left-0 top-0 h-full w-[80%] max-w-[300px] border-r border-gray-200 shadow-xl">
+          {/* En el cajón la barra va opaca: detrás hay un velo oscuro, no el
+              chat, y el cristal se vería sucio. */}
+          <aside className="animate-slide-in absolute left-0 top-0 h-full w-[85%] max-w-[320px] bg-ios-bg shadow-xl">
             <ConversationSidebar
               scope={scope}
               onNavigate={() => setDrawerOpen(false)}
@@ -54,7 +56,7 @@ function Workspace({ scope }: { scope: AgentScope }) {
       )}
 
       {/* Panel del chat */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Cabecera translúcida; en móvil lleva también el botón del historial. */}
         <ChatHeader scope={scope} onOpenSidebar={() => setDrawerOpen(true)} />
 

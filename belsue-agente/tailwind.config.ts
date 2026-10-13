@@ -74,6 +74,7 @@ const config: Config = {
           "accent-hover": "var(--ios-accent-hover)",
           bg: "var(--ios-bg)",
           surface: "var(--ios-surface)",
+          "surface-hover": "var(--ios-surface-hover)",
           label: "var(--ios-label)",
           secondary: "var(--ios-secondary)",
           body: "var(--ios-body)",

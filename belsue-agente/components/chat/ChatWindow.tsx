@@ -381,12 +381,16 @@ export default function ChatWindow({
 
   return (
     <div className="flex h-full min-h-0">
-      {/* Columna del chat */}
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4">
-          <div className="flex-1 space-y-5 overflow-y-auto py-6">
+      {/* Columna del chat (min-w-0: un texto largo sin cortes no la ensancha) */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* El desplazamiento ocupa todo el ancho y pasa por debajo de la
+            cabecera translúcida (de ahí el hueco superior) y de la zona de
+            entrada, que va pegada abajo dentro de él. Los mensajes van en una
+            columna centrada. */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-[80px]">
+          <div className="mx-auto w-full max-w-[780px] flex-1 space-y-[10px] pb-4">
             {messages.map((m, i) => (
-              <div key={i} className="animate-rise">
+              <div key={i} className="animate-msg">
                 <MessageBubble
                   message={m}
                   isStreaming={streamingIndex === i}
@@ -405,13 +409,14 @@ export default function ChatWindow({
             ))}
 
             {showSuggestions && (
-              <div className="flex flex-wrap gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-1">
                 {config.suggestions.map((s, i) => (
                   <button
                     key={s}
+                    type="button"
                     onClick={() => sendMessage(s)}
-                    style={{ animationDelay: `${0.12 + i * 0.07}s` }}
-                    className="animate-rise rounded-full border border-belsue/30 bg-belsue/5 px-3 py-1.5 text-sm text-belsue transition hover:bg-belsue/10 hover:shadow-sm"
+                    style={{ animationDelay: `${0.05 + i * 0.05}s` }}
+                    className="animate-msg min-h-[36px] rounded-full border border-ios-border bg-ios-surface px-4 py-1.5 text-[15px] text-ios-label shadow-ios transition-colors duration-150 hover:bg-ios-surface-hover"
                   >
                     {s}
                   </button>
@@ -420,11 +425,12 @@ export default function ChatWindow({
             )}
 
             {error && (
-              <div className="flex items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+              <div className="flex items-center justify-between gap-3 rounded-card bg-red-50 px-3.5 py-2.5 text-[15px] text-red-700">
                 <span>{error}</span>
                 <button
+                  type="button"
                   onClick={handleRetry}
-                  className="shrink-0 rounded bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700"
+                  className="min-h-[32px] shrink-0 rounded-full bg-red-700 px-3.5 text-[13px] font-semibold text-white transition-opacity duration-150 hover:opacity-90"
                 >
                   Reintentar
                 </button>
@@ -434,51 +440,65 @@ export default function ChatWindow({
             <div ref={bottomRef} />
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="sticky bottom-0 flex flex-col gap-1 py-4"
-          >
-            <div className="flex items-end gap-2">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              placeholder={
-                enterSends
-                  ? "Escribe tu consulta… (Enter envía, Shift+Enter salta de línea)"
-                  : "Escribe tu consulta… (Enter salta de línea, Ctrl+Enter envía)"
-              }
-              className="glass max-h-40 flex-1 resize-none rounded-2xl border border-gray-300/60 px-4 py-3 text-sm leading-5 focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="flex h-12 shrink-0 items-center rounded-2xl bg-belsue px-5 text-sm font-medium text-white transition hover:bg-belsue-700 disabled:opacity-40"
+          {/* Zona de entrada: cristal como la cabecera, pegada abajo. */}
+          <div className="ios-bar sticky bottom-0 -mx-4 border-t border-ios-separator px-4 pb-[max(8px,env(safe-area-inset-bottom))] pt-2.5">
+            <form
+              onSubmit={handleSubmit}
+              className="mx-auto flex w-full max-w-[780px] flex-col gap-1"
             >
-              {isLoading ? "…" : "Enviar"}
-            </button>
-            </div>
+              <div className="flex items-end gap-2 rounded-[26px] border border-ios-border bg-ios-surface py-1.5 pl-4 pr-1.5 shadow-[var(--ios-shadow-raised)] transition-shadow duration-150 focus-within:shadow-[var(--ios-focus-ring)]">
+                <label htmlFor="chat-input" className="sr-only">
+                  Escribe tu consulta
+                </label>
+                <textarea
+                  id="chat-input"
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={1}
+                  placeholder="Escribe tu consulta"
+                  className="ios-plain-field max-h-40 min-w-0 flex-1 resize-none border-0 py-[9px] text-base leading-[22px] text-ios-label placeholder:text-ios-secondary focus:outline-none disabled:opacity-60"
+                  disabled={isLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !input.trim()}
+                  aria-label={isLoading ? "Enviando…" : "Enviar"}
+                  title="Enviar"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ios-accent text-white transition-[background-color,opacity] duration-150 hover:bg-ios-accent-hover disabled:opacity-40 disabled:hover:bg-ios-accent"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19.5v-15m0 0l-6 6m6-6l6 6" />
+                  </svg>
+                </button>
+              </div>
 
-            {/* Cada persona decide qué hace Enter; se recuerda en su navegador. */}
-            <label className="flex cursor-pointer select-none items-center gap-1.5 self-end pr-1 text-xs text-gray-400 transition hover:text-gray-600">
-              <input
-                type="checkbox"
-                checked={enterSends}
-                onChange={toggleEnterSends}
-                className="h-3 w-3 accent-belsue"
-              />
-              Enviar con Enter
-            </label>
-          </form>
+              {/* Cada persona decide qué hace Enter; se recuerda en su navegador. */}
+              <div className="flex items-center justify-between gap-3 px-3 text-xs text-ios-secondary">
+                <span className="hidden sm:inline">
+                  {enterSends
+                    ? "Enter envía · Shift+Enter salta de línea"
+                    : "Enter salta de línea · Ctrl+Enter envía"}
+                </span>
+                <label className="ml-auto flex min-h-[28px] cursor-pointer select-none items-center gap-1.5 transition-colors duration-150 hover:text-ios-label">
+                  <input
+                    type="checkbox"
+                    checked={enterSends}
+                    onChange={toggleEnterSends}
+                    className="h-3.5 w-3.5 accent-ios-accent"
+                  />
+                  Enviar con Enter
+                </label>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
 
       {/* Panel de fuentes: al margen en pantallas grandes… */}
       {sourcesOpen && (
-        <aside className="animate-slide-in hidden w-80 shrink-0 border-l border-gray-200 lg:block">
+        <aside className="animate-slide-in hidden w-80 shrink-0 border-l border-ios-separator pt-16 lg:block">
           <SourcesPanel
             sources={displayedSources}
             onClose={() => setSourcesOpen(false)}

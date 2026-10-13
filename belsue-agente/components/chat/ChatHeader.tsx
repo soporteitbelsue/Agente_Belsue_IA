@@ -111,7 +111,9 @@ export default function ChatHeader({
   const close = () => setMenuOpen(false);
 
   return (
-    <header className="ios-bar sticky top-0 z-30 border-b border-ios-separator">
+    // Superpuesta al chat (absolute): los mensajes pasan por debajo y se
+    // intuyen a través del cristal.
+    <header className="ios-bar absolute inset-x-0 top-0 z-30 border-b border-ios-separator">
       <div className="flex h-16 items-center gap-3 px-4">
         <button
           type="button"

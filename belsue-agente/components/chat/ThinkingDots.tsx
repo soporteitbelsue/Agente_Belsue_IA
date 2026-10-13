@@ -16,7 +16,7 @@ export default function ThinkingDots() {
         <span
           key={i}
           aria-hidden
-          className="thinking-dot block h-1.5 w-1.5 rounded-full bg-belsue"
+          className="thinking-dot block h-1.5 w-1.5 rounded-full bg-ios-secondary"
           style={{ animationDelay: `${i * 0.16}s` }}
         />
       ))}
