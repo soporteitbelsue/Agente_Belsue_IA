@@ -149,7 +149,7 @@ const PROCEDIMIENTOS: ScopeConfig = {
   suggestions: [
     "¿Qué pasos sigo para dar de alta una póliza nueva?",
     "¿Cómo abro un ticket saliente en Belchat?",
-    "¿Cómo se mete una nueva credencial en Auna Pass?",
+    "¿Cómo se mete una nueva credencial en Aunna Pass?",
   ],
   secondaryField: {
     label: "Área o responsable",
