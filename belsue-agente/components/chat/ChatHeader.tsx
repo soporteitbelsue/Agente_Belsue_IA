@@ -29,6 +29,16 @@ const ICONS = {
     "M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75",
 };
 
+/** Iniciales para el avatar del usuario ("Cecilia Ferraz" → "CF"). */
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 const ITEM =
   "flex min-h-[44px] w-full items-center gap-3 px-4 py-2 text-left text-[15px] text-ios-label transition-colors duration-150 hover:bg-ios-fill";
 
@@ -38,12 +48,14 @@ function MenuRow({
   href,
   onClick,
   trailing,
+  className = "",
   children,
 }: {
   icon: string;
   href?: string;
   onClick?: () => void;
   trailing?: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   const content = (
@@ -56,11 +68,11 @@ function MenuRow({
     </>
   );
   return href ? (
-    <Link href={href} onClick={onClick} className={ITEM}>
+    <Link href={href} onClick={onClick} className={`${ITEM} ${className}`}>
       {content}
     </Link>
   ) : (
-    <button type="button" onClick={onClick} className={ITEM}>
+    <button type="button" onClick={onClick} className={`${ITEM} ${className}`}>
       {content}
     </button>
   );
@@ -139,6 +151,37 @@ export default function ChatHeader({
           </p>
         </div>
 
+        {/* Cambiar de portal: siempre a la vista, no escondido en el menú. */}
+        <Link
+          href="/"
+          aria-label="Cambiar de portal"
+          title="Cambiar de portal"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ios-fill text-ios-accent transition-colors duration-150 hover:bg-ios-fill-hover"
+        >
+          <Icon d={ICONS.portals} />
+        </Link>
+
+        {/* Usuario: lleva a su cuenta (cambiar contraseña). En móvil no cabe
+            y queda dentro del menú de opciones. */}
+        {user && (
+          <Link
+            href="/cuenta/contrasena"
+            title="Mi cuenta · cambiar contraseña"
+            className="hidden h-11 shrink-0 items-center gap-2 rounded-full pl-0.5 pr-0.5 transition-colors duration-150 hover:bg-ios-fill sm:flex lg:pr-3.5"
+          >
+            <span
+              aria-hidden
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-ios-fill-hover text-[13px] font-semibold text-ios-label"
+            >
+              {initials(user.name ?? "?")}
+            </span>
+            <span className="hidden max-w-[160px] truncate text-[15px] font-medium text-ios-label lg:inline">
+              {user.name}
+            </span>
+            <span className="sr-only lg:hidden">{user.name}, mi cuenta</span>
+          </Link>
+        )}
+
         <div ref={menuRef} className="relative">
           <button
             ref={buttonRef}
@@ -187,13 +230,11 @@ export default function ChatHeader({
                   Administración
                 </MenuRow>
               )}
-              <MenuRow icon={ICONS.portals} href="/" onClick={close}>
-                Cambiar de portal
-              </MenuRow>
 
               <div className="my-1 border-t border-ios-separator" />
+              {/* En pantallas anchas el usuario ya está en la cabecera. */}
               {user && (
-                <MenuRow icon={ICONS.account} href="/cuenta/contrasena" onClick={close}>
+                <MenuRow icon={ICONS.account} href="/cuenta/contrasena" onClick={close} className="sm:hidden">
                   <span className="block truncate">{user.name}</span>
                   <span className="block text-[13px] text-ios-secondary">
                     Cambiar contraseña
