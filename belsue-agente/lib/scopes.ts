@@ -148,7 +148,8 @@ const PROCEDIMIENTOS: ScopeConfig = {
 ¿Qué necesitas saber?`,
   suggestions: [
     "¿Qué pasos sigo para dar de alta una póliza nueva?",
-    "¿A quién aviso si un cliente reclama un siniestro?",
+    "¿Cómo abro un ticket saliente en Belchat?",
+    "¿Cómo se mete una nueva credencial en Auna Pass?",
   ],
   secondaryField: {
     label: "Área o responsable",
