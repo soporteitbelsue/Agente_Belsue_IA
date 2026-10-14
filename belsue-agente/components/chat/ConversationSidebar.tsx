@@ -31,6 +31,12 @@ const ICONS = {
     "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10",
   search: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z",
   chevron: "M8.25 4.5l7.5 7.5-7.5 7.5",
+  // Ventana con panel a la izquierda: plegar / desplegar la barra
+  sidebar:
+    "M3.75 5.25h16.5a.75.75 0 01.75.75v12a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V6a.75.75 0 01.75-.75zM9 5.25v13.5",
+  // Pila de fichas: conocimiento / procedimientos del equipo
+  stack:
+    "M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.246 2.246 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-.98.626-1.813 1.5-2.122",
   trash:
     "M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0",
 };
@@ -38,6 +44,14 @@ const ICONS = {
 /** Botón-tesela de los accesos rápidos (Aportar, Cursos, Contactos). */
 const TILE =
   "flex h-[68px] flex-col items-center justify-center gap-1 rounded-card bg-ios-surface text-xs font-medium text-ios-label shadow-ios transition-colors duration-150 hover:bg-ios-surface-hover";
+
+/** Tesela de la barra plegada: icono con una etiqueta pequeña debajo. */
+const RAIL_TILE =
+  "flex h-[60px] w-[64px] flex-col items-center justify-center gap-1 rounded-card bg-ios-surface text-[11px] font-medium text-ios-label shadow-ios transition-colors duration-150 hover:bg-ios-surface-hover";
+
+/** Botón redondo gris de la barra (redactar, plegar…). */
+const ROUND =
+  "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ios-fill text-ios-accent transition-colors duration-150 hover:bg-ios-fill-hover";
 
 type ConvItem = Pick<
   Conversation,
@@ -71,10 +85,16 @@ function groupByDate(items: ConvItem[]): Group[] {
 export default function ConversationSidebar({
   scope = DEFAULT_SCOPE,
   onNavigate,
+  collapsed = false,
+  onToggleCollapsed,
 }: {
   /** Pestaña activa: su historial es independiente del de la otra. */
   scope?: AgentScope;
   onNavigate?: () => void;
+  /** Barra plegada: solo iconos (nueva conversación y accesos rápidos). */
+  collapsed?: boolean;
+  /** Si se pasa, muestra el botón de plegar/desplegar (solo escritorio). */
+  onToggleCollapsed?: () => void;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -133,6 +153,69 @@ export default function ConversationSidebar({
   // Accesos rápidos: "Aportar" siempre y, según el portal, Cursos y Contactos.
   const tileCount = 1 + (config.extraLinks?.length ?? 0);
 
+  const knowledgeLabel =
+    scope === "procedimientos"
+      ? "Ver procedimientos del equipo"
+      : "Ver conocimiento del equipo";
+
+  const toggleButton = onToggleCollapsed && (
+    <button
+      type="button"
+      onClick={onToggleCollapsed}
+      aria-expanded={!collapsed}
+      aria-label={collapsed ? "Desplegar la barra lateral" : "Plegar la barra lateral"}
+      title={collapsed ? "Desplegar la barra lateral" : "Plegar la barra lateral"}
+      className={ROUND}
+    >
+      <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.sidebar} />
+      </svg>
+    </button>
+  );
+
+  // Barra plegada: una columna de iconos. El historial se ve al desplegarla.
+  if (collapsed) {
+    return (
+      <nav aria-label="Accesos del chat" className="flex h-full flex-col items-center gap-3 py-4">
+        {toggleButton}
+        <button
+          type="button"
+          onClick={() => goTo(null)}
+          aria-label="Nueva conversación"
+          title="Nueva conversación"
+          className={ROUND}
+        >
+          <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.compose} />
+          </svg>
+        </button>
+
+        <span aria-hidden className="my-1 h-px w-10 bg-ios-separator" />
+
+        <ContributeKnowledge scope={scope} className={RAIL_TILE} />
+        {config.extraLinks?.map((link) => (
+          <Link key={link.href} href={link.href} title={link.label} className={RAIL_TILE}>
+            <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d={EXTRA_LINK_ICONS[link.icon]} />
+            </svg>
+            {link.label}
+          </Link>
+        ))}
+
+        <Link
+          href={`/conocimiento?scope=${scope}`}
+          aria-label={knowledgeLabel}
+          title={knowledgeLabel}
+          className={`${ROUND} mt-auto !text-ios-secondary hover:!text-ios-label`}
+        >
+          <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.stack} />
+          </svg>
+        </Link>
+      </nav>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="space-y-3 px-4 pb-3 pt-4">
@@ -140,17 +223,20 @@ export default function ConversationSidebar({
           <h2 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-ios-label">
             Chats
           </h2>
-          <button
-            type="button"
-            onClick={() => goTo(null)}
-            aria-label="Nueva conversación"
-            title="Nueva conversación"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-ios-fill text-ios-accent transition-colors duration-150 hover:bg-ios-fill-hover"
-          >
-            <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.compose} />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {toggleButton}
+            <button
+              type="button"
+              onClick={() => goTo(null)}
+              aria-label="Nueva conversación"
+              title="Nueva conversación"
+              className={ROUND}
+            >
+              <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.compose} />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <label className="flex h-11 items-center gap-2 rounded-field bg-ios-fill px-3 text-ios-secondary focus-within:bg-ios-fill-hover focus-within:outline focus-within:outline-2 focus-within:outline-ios-accent">
@@ -299,9 +385,7 @@ export default function ConversationSidebar({
           onClick={() => onNavigate?.()}
           className="flex min-h-[44px] items-center justify-between rounded-card bg-ios-surface px-4 text-[15px] text-ios-label shadow-ios transition-colors duration-150 hover:bg-ios-surface-hover"
         >
-          {scope === "procedimientos"
-            ? "Ver procedimientos del equipo"
-            : "Ver conocimiento del equipo"}
+          {knowledgeLabel}
           <svg className="h-4 w-4 text-ios-secondary" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d={ICONS.chevron} />
           </svg>

@@ -1,11 +1,14 @@
 "use client";
 
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ChatHeader from "@/components/chat/ChatHeader";
 import ChatWindow from "@/components/chat/ChatWindow";
 import ConversationSidebar from "@/components/chat/ConversationSidebar";
 import { scopeConfig, type AgentScope } from "@/lib/scopes";
+
+/** Preferencia de cada persona: barra lateral plegada o desplegada. */
+const SIDEBAR_COLLAPSED_KEY = "belsue:barra-plegada";
 
 /**
  * Espacio de trabajo del agente (historial + chat + fuentes).
@@ -18,6 +21,20 @@ function Workspace({ scope }: { scope: AgentScope }) {
   const searchParams = useSearchParams();
   const conversationId = searchParams.get("id") ?? undefined;
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Barra lateral plegada (solo escritorio): se recuerda en el navegador.
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1");
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
 
   const config = scopeConfig(scope);
 
@@ -33,8 +50,16 @@ function Workspace({ scope }: { scope: AgentScope }) {
   return (
     <div className="ios flex h-full min-h-0">
       {/* Sidebar fijo (desktop) */}
-      <aside className="ios-sidebar hidden w-[320px] shrink-0 border-r border-ios-separator md:block">
-        <ConversationSidebar scope={scope} />
+      <aside
+        className={`ios-sidebar hidden shrink-0 border-r border-ios-separator transition-[width] duration-150 md:block ${
+          collapsed ? "w-[84px]" : "w-[320px]"
+        }`}
+      >
+        <ConversationSidebar
+          scope={scope}
+          collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
+        />
       </aside>
 
       {/* Drawer (móvil) */}

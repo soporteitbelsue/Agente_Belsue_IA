@@ -5,6 +5,9 @@ import { createPortal } from "react-dom";
 import AddKnowledgeModal from "@/components/admin/AddKnowledgeModal";
 import { DEFAULT_SCOPE, type AgentScope } from "@/lib/scopes";
 
+const TILE =
+  "flex h-[68px] w-full flex-col items-center justify-center gap-1 rounded-card bg-ios-surface text-xs font-medium text-ios-label shadow-ios transition-colors duration-150 hover:bg-ios-surface-hover";
+
 /**
  * Botón "Aportar conocimiento" de la barra lateral del chat. Abre el mismo
  * formulario que la pantalla de Conocimiento, así que desde aquí se puede
@@ -15,8 +18,11 @@ import { DEFAULT_SCOPE, type AgentScope } from "@/lib/scopes";
  */
 export default function ContributeKnowledge({
   scope = DEFAULT_SCOPE,
+  className = TILE,
 }: {
   scope?: AgentScope;
+  /** Forma del botón: tesela de la barra desplegada o de la plegada. */
+  className?: string;
 } = {}) {
   const [open, setOpen] = useState(false);
 
@@ -26,7 +32,7 @@ export default function ContributeKnowledge({
         type="button"
         onClick={() => setOpen(true)}
         title="Aportar conocimiento"
-        className="flex h-[68px] w-full flex-col items-center justify-center gap-1 rounded-card bg-ios-surface text-xs font-medium text-ios-label shadow-ios transition-colors duration-150 hover:bg-ios-surface-hover"
+        className={className}
       >
         <svg
           className="h-[22px] w-[22px] text-ios-label"
