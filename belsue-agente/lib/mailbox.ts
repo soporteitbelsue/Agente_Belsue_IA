@@ -7,7 +7,8 @@ import { simpleParser } from "mailparser";
  *
  * Es SOLO LECTURA a propósito: la carpeta se abre en modo EXAMINE (readOnly),
  * así que ni siquiera se marcan los correos como leídos. No hay forma de
- * enviar, mover ni borrar desde aquí.
+ * enviar, mover ni borrar desde aquí. Lo único que mueve correos es el
+ * clasificador de lib/mailSorter.ts, y solo entre carpetas del propio buzón.
  *
  * De momento hay un único buzón, configurado por variables de entorno, y solo
  * lo puede consultar su dueño (MAILBOX_OWNER_EMAIL): el resto de usuarios del
@@ -28,6 +29,22 @@ const MAX_RESULTS = 25;
 const BODY_CHARS = 1500;
 /** Correos de más de este tamaño no se descargan enteros (adjuntos grandes). */
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
+
+/** true si hay credenciales IMAP en el entorno. */
+export function mailboxConfigured(): boolean {
+  return Boolean(IMAP_USER && IMAP_PASSWORD);
+}
+
+/** Cliente IMAP sin conectar, con las credenciales del buzón configurado. */
+export function newImapClient(): ImapFlow {
+  return new ImapFlow({
+    host: IMAP_HOST,
+    port: IMAP_PORT,
+    secure: true,
+    auth: { user: IMAP_USER, pass: IMAP_PASSWORD },
+    logger: false,
+  });
+}
 
 /** true si el usuario con ese email puede consultar el buzón configurado. */
 export function mailboxAvailableFor(email: string | null | undefined): boolean {
@@ -72,13 +89,7 @@ export async function searchEmails(
   }
   if (!query.or && !query.since) query.all = true;
 
-  const client = new ImapFlow({
-    host: IMAP_HOST,
-    port: IMAP_PORT,
-    secure: true,
-    auth: { user: IMAP_USER, pass: IMAP_PASSWORD },
-    logger: false,
-  });
+  const client = newImapClient();
 
   await client.connect();
   try {
@@ -124,13 +135,7 @@ export async function searchEmails(
 
 /** Lista las carpetas del buzón (para buscar fuera de la bandeja de entrada). */
 export async function listMailFolders(): Promise<string[]> {
-  const client = new ImapFlow({
-    host: IMAP_HOST,
-    port: IMAP_PORT,
-    secure: true,
-    auth: { user: IMAP_USER, pass: IMAP_PASSWORD },
-    logger: false,
-  });
+  const client = newImapClient();
   await client.connect();
   try {
     const folders = await client.list();
