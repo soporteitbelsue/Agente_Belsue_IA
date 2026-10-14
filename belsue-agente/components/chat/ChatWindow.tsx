@@ -70,8 +70,11 @@ export default function ChatWindow({
     (open: boolean) => sources?.setOpen(open),
     [sources],
   );
-  // Id de la conversación activa en este panel (puede crearse al enviar).
-  const currentIdRef = useRef<string | null>(conversationId ?? null);
+  // Id de la conversación ya cargada en este panel (puede crearse al enviar).
+  // Empieza vacío aunque la URL traiga ?id=: si se inicializase con ese id,
+  // el efecto de carga lo daría por cargado y, al recargar la página o abrir
+  // un enlace a una conversación, se veía la bienvenida en vez de sus mensajes.
+  const currentIdRef = useRef<string | null>(null);
   // Espejo siempre actualizado de los mensajes: permite leer el historial de
   // forma síncrona al enviar (el updater de setState no corre de inmediato).
   const messagesRef = useRef<ChatMessage[]>(messages);
@@ -89,6 +92,7 @@ export default function ChatWindow({
     }
 
     let cancelled = false;
+    let finished = false;
     (async () => {
       try {
         const res = await fetch(`/api/conversations/${conversationId}`);
@@ -108,10 +112,18 @@ export default function ChatWindow({
         }
       } catch {
         /* silencioso */
+      } finally {
+        finished = true;
       }
     })();
     return () => {
       cancelled = true;
+      // Una carga cortada a medias no cuenta como cargada: así la siguiente
+      // pasada del efecto vuelve a pedirla. Pasa en desarrollo, donde React
+      // monta, desmonta y vuelve a montar cada efecto (modo estricto).
+      if (!finished && currentIdRef.current === conversationId) {
+        currentIdRef.current = null;
+      }
     };
   }, [conversationId, welcomeMessage]);
 
