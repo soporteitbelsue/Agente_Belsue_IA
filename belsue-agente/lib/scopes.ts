@@ -147,7 +147,6 @@ const PROCEDIMIENTOS: ScopeConfig = {
 
 ¿Qué necesitas saber?`,
   suggestions: [
-    "¿Cómo nos organizamos para atender el teléfono?",
     "¿Qué pasos sigo para dar de alta una póliza nueva?",
     "¿A quién aviso si un cliente reclama un siniestro?",
   ],
