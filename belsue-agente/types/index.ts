@@ -1,7 +1,15 @@
 import type { DefaultSession } from "next-auth";
 import type { AgentScope } from "@/lib/scopes";
 
-export type FileType = "pdf" | "docx" | "txt" | "nota" | "pptx" | "video";
+export type FileType =
+  | "pdf"
+  | "docx"
+  | "txt"
+  | "nota"
+  | "pptx"
+  | "video"
+  | "jpg"
+  | "png";
 
 export type UserRole = "asesor" | "admin";
 

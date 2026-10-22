@@ -41,10 +41,12 @@ const TYPE_LABEL: Record<string, string> = {
   pptx: "PowerPoint",
   txt: "Texto",
   video: "Vídeo",
+  jpg: "Imagen",
+  png: "Imagen",
 };
 
 /** Lo que el navegador sabe pintar sin descargar (ver /api/documents/[id]/view). */
-const VIEWABLE = new Set(["pdf", "txt", "video"]);
+const VIEWABLE = new Set(["pdf", "txt", "video", "jpg", "png"]);
 
 const TYPE_FILTERS = [
   { value: "", label: "Todo" },

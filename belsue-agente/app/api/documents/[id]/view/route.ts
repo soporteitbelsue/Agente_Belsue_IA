@@ -7,7 +7,7 @@ import { parseVideoUrl } from "@/lib/video";
 export const runtime = "nodejs";
 
 /** Tipos que el navegador sabe mostrar por sí solo, sin descargar. */
-const VIEWABLE = new Set(["pdf", "txt"]);
+const VIEWABLE = new Set(["pdf", "txt", "jpg", "png"]);
 
 
 /** true si el file_path es una ruta de Storage (no una ruta de disco antigua). */

@@ -12,6 +12,9 @@ const EXT_TO_TYPE: Record<string, string> = {
   ".docx": "docx",
   ".txt": "txt",
   ".pptx": "pptx",
+  ".jpg": "jpg",
+  ".jpeg": "jpg",
+  ".png": "png",
 };
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -65,7 +68,7 @@ export async function POST(req: NextRequest) {
   const fileType = EXT_TO_TYPE[body.ext];
   if (!fileType) {
     return NextResponse.json(
-      { error: "Tipo de archivo no permitido. Solo PDF, DOCX, PPTX o TXT." },
+      { error: "Tipo de archivo no permitido. Solo PDF, DOCX, PPTX, TXT, JPG o PNG." },
       { status: 400 },
     );
   }

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import mammoth from "mammoth";
 import { unzipSync } from "fflate";
+import { openai, CHAT_MODEL } from "@/lib/openai";
 import type { FileType } from "@/types";
 
 /** Normaliza el texto extraído: colapsa espacios y líneas vacías repetidas. */
@@ -211,8 +212,48 @@ function extractPptxText(buffer: Buffer): string {
   return parts.join("\n\n");
 }
 
+const IMAGE_PROMPT = `Eres el lector de imágenes de la base de conocimiento de una correduría de seguros.
+Te paso una imagen (captura de pantalla, foto de un documento, tabla, cuadro de garantías, esquema...).
+Devuelve en español, en texto plano, TODO lo que haga falta para responder preguntas sobre ella sin verla:
+- Transcribe literalmente todo el texto legible, respetando el orden de lectura.
+- Las tablas, fila a fila, con "columna: valor".
+- Si hay un esquema, un diagrama o pasos en una pantalla, explica qué muestra y en qué orden.
+No inventes nada que no se vea. No añadas introducciones ni comentarios sobre la imagen.`;
+
 /**
- * Extrae el texto plano de un buffer en memoria (PDF, DOCX, PPTX o TXT).
+ * Una imagen no tiene texto que extraer: se la pasamos al modelo de visión
+ * para que transcriba y describa su contenido, y eso es lo que se indexa.
+ */
+async function extractImageText(buffer: Buffer, fileType: "jpg" | "png"): Promise<string> {
+  const mime = fileType === "png" ? "image/png" : "image/jpeg";
+  const completion = await openai.chat.completions.create({
+    model: CHAT_MODEL,
+    messages: [
+      { role: "system", content: IMAGE_PROMPT },
+      {
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mime};base64,${buffer.toString("base64")}`,
+              detail: "high",
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  const text = completion.choices[0]?.message?.content?.trim() ?? "";
+  if (!text) {
+    throw new Error("No se pudo leer ningún contenido en la imagen.");
+  }
+  return text;
+}
+
+/**
+ * Extrae el texto plano de un buffer en memoria (PDF, DOCX, PPTX, TXT o imagen).
  */
 export async function extractTextFromBuffer(
   buffer: Buffer,
@@ -233,6 +274,10 @@ export async function extractTextFromBuffer(
     }
     case "txt": {
       return cleanText(buffer.toString("utf-8"));
+    }
+    case "jpg":
+    case "png": {
+      return cleanText(await extractImageText(buffer, type));
     }
     default:
       throw new Error(`Tipo de archivo no soportado: ${fileType}`);
