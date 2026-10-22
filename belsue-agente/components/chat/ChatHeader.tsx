@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useSources } from "./SourcesContext";
-import { scopeConfig, type AgentScope } from "@/lib/scopes";
+import PortalLogo from "@/components/PortalLogo";
+import { SCOPE_LIST, scopeConfig, type AgentScope } from "@/lib/scopes";
 
 /** Icono de trazo (Heroicons, 24px, contorno) con el grosor del chat. */
 function Icon({ d, className = "h-5 w-5" }: { d: string; className?: string }) {
@@ -27,7 +28,70 @@ const ICONS = {
     "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z",
   logout:
     "M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75",
+  check: "M4.5 12.75l6 6 9-13.5",
 };
+
+/** Cierra un menú desplegable al pulsar fuera o con Escape. */
+function useDismiss(
+  open: boolean,
+  setOpen: (open: boolean) => void,
+  menuRef: RefObject<HTMLElement>,
+  buttonRef: RefObject<HTMLElement>,
+) {
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, setOpen, menuRef, buttonRef]);
+}
+
+const DROPDOWN =
+  "animate-rise absolute right-0 top-full z-40 mt-2 overflow-hidden rounded-card border border-ios-separator bg-ios-surface py-1 shadow-[0_10px_30px_rgba(0,0,0,0.12)]";
+
+/** Fila del selector de portales: logo, nombre y una marca en el actual. */
+function PortalRow({
+  logo,
+  href,
+  title,
+  current,
+  onClick,
+}: {
+  logo: AgentScope | "admin";
+  href: string;
+  title: string;
+  current: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      aria-current={current ? "page" : undefined}
+      className={`${ITEM} ${current ? "font-semibold" : ""}`}
+    >
+      <PortalLogo scope={logo} className="h-8 w-8 rounded-lg bg-[#fff]" />
+      <span className="flex-1 truncate">{title}</span>
+      {current && (
+        <span className="text-ios-accent">
+          <Icon d={ICONS.check} />
+        </span>
+      )}
+    </Link>
+  );
+}
 
 /** Iniciales para el avatar del usuario ("Cecilia Ferraz" → "CF"). */
 function initials(name: string): string {
@@ -99,28 +163,15 @@ export default function ChatHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  useDismiss(menuOpen, setMenuOpen, menuRef, buttonRef);
 
-  // El menú se cierra al pulsar fuera o con Escape.
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onPointer = (e: PointerEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setMenuOpen(false);
-        buttonRef.current?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
+  const [portalsOpen, setPortalsOpen] = useState(false);
+  const portalsRef = useRef<HTMLDivElement>(null);
+  const portalsButtonRef = useRef<HTMLButtonElement>(null);
+  useDismiss(portalsOpen, setPortalsOpen, portalsRef, portalsButtonRef);
 
   const close = () => setMenuOpen(false);
+  const closePortals = () => setPortalsOpen(false);
 
   return (
     // Superpuesta al chat (absolute): los mensajes pasan por debajo y se
@@ -151,15 +202,52 @@ export default function ChatHeader({
           </p>
         </div>
 
-        {/* Cambiar de portal: siempre a la vista, no escondido en el menú. */}
-        <Link
-          href="/"
-          aria-label="Cambiar de portal"
-          title="Cambiar de portal"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ios-fill text-ios-accent transition-colors duration-150 hover:bg-ios-fill-hover"
-        >
-          <Icon d={ICONS.portals} />
-        </Link>
+        {/* Cambiar de portal: siempre a la vista, no escondido en el menú.
+            Despliega los portales para saltar directamente, sin pasar por la
+            pantalla de inicio. */}
+        <div ref={portalsRef} className="relative shrink-0">
+          <button
+            ref={portalsButtonRef}
+            type="button"
+            onClick={() => setPortalsOpen((o) => !o)}
+            aria-haspopup="true"
+            aria-expanded={portalsOpen}
+            aria-label="Cambiar de portal"
+            title="Cambiar de portal"
+            className={`flex h-11 w-11 items-center justify-center rounded-full text-ios-accent transition-colors duration-150 ${
+              portalsOpen ? "bg-ios-fill-hover" : "bg-ios-fill hover:bg-ios-fill-hover"
+            }`}
+          >
+            <Icon d={ICONS.portals} />
+          </button>
+
+          {portalsOpen && (
+            <div className={`${DROPDOWN} w-64`}>
+              <p className="px-4 pb-1 pt-2 text-[13px] font-semibold text-ios-secondary">
+                Portales
+              </p>
+              {SCOPE_LIST.map((portal) => (
+                <PortalRow
+                  key={portal.id}
+                  logo={portal.id}
+                  href={portal.path}
+                  title={portal.title}
+                  current={portal.id === scope}
+                  onClick={closePortals}
+                />
+              ))}
+              {user?.role === "admin" && (
+                <PortalRow
+                  logo="admin"
+                  href="/admin"
+                  title="Administración"
+                  current={false}
+                  onClick={closePortals}
+                />
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Usuario: lleva a su cuenta (cambiar contraseña). En móvil no cabe
             y queda dentro del menú de opciones. */}
@@ -198,7 +286,7 @@ export default function ChatHeader({
           </button>
 
           {menuOpen && (
-            <div className="animate-rise absolute right-0 top-full z-40 mt-2 w-72 overflow-hidden rounded-card border border-ios-separator bg-ios-surface py-1 shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
+            <div className={`${DROPDOWN} w-72`}>
               {sources?.available && (
                 <MenuRow
                   icon={ICONS.sources}
@@ -216,22 +304,17 @@ export default function ChatHeader({
                 </MenuRow>
               )}
 
-              <div className="my-1 border-t border-ios-separator" />
-              {config.extraLinks?.map((link) => (
-                <MenuRow key={link.href} icon={ICONS.link} href={link.href} onClick={close}>
-                  {link.label}
-                </MenuRow>
-              ))}
-              <MenuRow icon={ICONS.link} href={`/conocimiento?scope=${scope}`} onClick={close}>
-                Conocimiento
-              </MenuRow>
-              {user?.role === "admin" && (
-                <MenuRow icon={ICONS.link} href="/admin" onClick={close}>
-                  Administración
-                </MenuRow>
+              {sources?.available && <div className="my-1 border-t border-ios-separator" />}
+              {!!config.extraLinks?.length && (
+                <>
+                  {config.extraLinks.map((link) => (
+                    <MenuRow key={link.href} icon={ICONS.link} href={link.href} onClick={close}>
+                      {link.label}
+                    </MenuRow>
+                  ))}
+                  <div className="my-1 border-t border-ios-separator" />
+                </>
               )}
-
-              <div className="my-1 border-t border-ios-separator" />
               {/* En pantallas anchas el usuario ya está en la cabecera. */}
               {user && (
                 <MenuRow icon={ICONS.account} href="/cuenta/contrasena" onClick={close} className="sm:hidden">
