@@ -107,7 +107,8 @@ export default function ConversationSidebar({
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/conversations?scope=${scope}`);
+      // Historial común a los dos portales: el chat es el mismo.
+      const res = await fetch("/api/conversations");
       const data = await res.json();
       if (res.ok) setConversations(data.conversations ?? []);
     } catch {
@@ -115,7 +116,7 @@ export default function ConversationSidebar({
     } finally {
       setLoading(false);
     }
-  }, [scope]);
+  }, []);
 
   useEffect(() => {
     load();

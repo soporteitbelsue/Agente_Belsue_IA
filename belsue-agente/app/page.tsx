@@ -188,8 +188,9 @@ export default async function HomePage() {
             Hola{firstName && <>, <span className="text-glow">{firstName}</span></>}
           </h1>
           <p className="mx-auto mt-2 max-w-2xl text-sm text-gray-500 sm:text-base">
-            ¿Con qué quieres trabajar hoy? Cada portal tiene su propia
-            información: lo que subas en uno no se mezcla con el otro.
+            ¿Con qué quieres trabajar hoy? Cada portal organiza su propia
+            información, y el asistente responde con la de los dos desde
+            cualquiera de ellos.
           </p>
         </div>
 

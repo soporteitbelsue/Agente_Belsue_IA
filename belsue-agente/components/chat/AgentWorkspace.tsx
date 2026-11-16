@@ -13,8 +13,8 @@ const SIDEBAR_COLLAPSED_KEY = "belsue:barra-plegada";
 /**
  * Espacio de trabajo del agente (historial + chat + fuentes).
  *
- * Es el mismo layout para todas las pestañas: lo que cambia es el ámbito, que
- * determina el conocimiento consultado, el prompt y el historial mostrado.
+ * Es el mismo chat en todas las pestañas (mismo agente, conocimiento e
+ * historial): el ámbito solo decide la cabecera y las secciones del portal.
  */
 function Workspace({ scope }: { scope: AgentScope }) {
   const router = useRouter();

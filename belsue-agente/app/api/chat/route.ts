@@ -17,7 +17,8 @@ import {
 } from "@/lib/conversations";
 import { sendNotification, escapeHtml } from "@/lib/email";
 import { buildSystemPrompt } from "@/lib/prompts";
-import { buildCatalogue } from "@/lib/catalogue";
+import { buildFullCatalogue } from "@/lib/catalogue";
+import { NO_ANSWER_RE } from "@/lib/noAnswer";
 import { AGENT_SCOPES, DEFAULT_SCOPE, scopeConfig } from "@/lib/scopes";
 import {
   listMailFolders,
@@ -45,15 +46,6 @@ const bodySchema = z.object({
     .default([]),
 });
 
-/**
- * Detecta si la respuesta es un "no sé responder". El modelo no usa siempre la
- * misma frase exacta, así que reconocemos las formas habituales: "no encuentro
- * / no dispongo de / no tengo esa información", "no aparece/consta/figura en los
- * documentos ni notas", etc. Se usa para avisar por correo del hueco de
- * conocimiento.
- */
-const NO_ANSWER_RE =
-  /no\s+(?:encuentro|dispongo\s+de|tengo|hay|consta|aparece|figura|puedo\s+(?:encontrar|ofrecer|proporcionar|dar))\b[\s\S]{0,60}?(?:informaci|dato|document|nota|belsu)/i;
 
 /** Longitud a partir de la cual un mensaje se busca por sí solo. */
 const SHORT_MESSAGE = 80;
@@ -90,16 +82,15 @@ function buildSearchQuery(
 
 /**
  * Formatea los chunks recuperados como bloque de contexto para el prompt.
- * La etiqueta del segundo campo depende del ámbito ("Compañía" en seguros,
- * "Área o responsable" en procedimientos): es la misma columna con otro sentido.
+ * La columna `company` es la compañía en El Formador y el área o responsable
+ * en Procedimientos; como el chat mezcla los dos, se rotula con ambos sentidos.
  */
-function buildContext(sources: Source[], scope: string): string {
+function buildContext(sources: Source[]): string {
   if (sources.length === 0) return "";
-  const secondaryLabel = scopeConfig(scope).secondaryField.label;
   return sources
     .map(
       (s) =>
-        `--- Documento: ${s.documentName} | ${secondaryLabel}: ${
+        `--- Documento: ${s.documentName} | Compañía o área: ${
           s.company ?? "N/D"
         } | Categoría: ${s.category ?? "N/D"} ---\n${s.content}`,
     )
@@ -245,7 +236,9 @@ export async function POST(req: NextRequest) {
   const { query, messages, scope } = parsed;
   const supabase = supabaseServer();
 
-  // 1. Resolver la conversación (existente, propia y del mismo ámbito, o nueva).
+  // 1. Resolver la conversación (existente y propia, o nueva). El chat es el
+  // mismo en los dos portales: una conversación empezada en uno se puede
+  // continuar desde el otro. `scope` solo apunta en qué portal se empezó.
   let conversationId: string;
   try {
     if (parsed.conversationId) {
@@ -253,7 +246,6 @@ export async function POST(req: NextRequest) {
         supabase,
         parsed.conversationId,
         userId,
-        scope,
       );
       if (!owns) {
         return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
@@ -277,14 +269,10 @@ export async function POST(req: NextRequest) {
     console.error("[chat] Error al guardar el mensaje del usuario:", err);
   }
 
-  // 3. Recuperar chunks del ámbito y construir su system prompt.
+  // 3. Recuperar chunks de los dos portales y construir el system prompt.
   let sources: Source[] = [];
   try {
-    sources = await retrieveRelevantChunks(
-      buildSearchQuery(query, messages),
-      8,
-      scope,
-    );
+    sources = await retrieveRelevantChunks(buildSearchQuery(query, messages), 8);
   } catch (err) {
     console.error("[chat] Error al recuperar chunks:", err);
   }
@@ -322,13 +310,13 @@ export async function POST(req: NextRequest) {
   // contexto, qué dice. Son cosas distintas y el prompt las separa.
   let catalogue = "";
   try {
-    catalogue = await buildCatalogue(scope);
+    catalogue = await buildFullCatalogue();
   } catch (err) {
     console.error("[chat] Error al construir el catálogo:", err);
   }
 
   const systemPrompt =
-    buildSystemPrompt(scope, buildContext(sources, scope), catalogue) +
+    buildSystemPrompt(buildContext(sources), catalogue) +
     (mailEnabled ? MAIL_PROMPT : "");
 
   const chatMessages: ChatCompletionMessageParam[] = [

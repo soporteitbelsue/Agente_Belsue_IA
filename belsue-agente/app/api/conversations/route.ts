@@ -7,15 +7,14 @@ export const runtime = "nodejs";
 
 /**
  * GET /api/conversations — lista las conversaciones del usuario.
- * Query param `scope`: cada pestaña muestra solo su propio historial.
+ * El chat es el mismo en los dos portales, así que se listan todas, sin
+ * filtrar por el portal en el que se empezaron.
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   }
-
-  const scope = parseScope(new URL(req.url).searchParams.get("scope"));
 
   try {
     const supabase = supabaseServer();
@@ -23,7 +22,6 @@ export async function GET(req: NextRequest) {
       .from("conversations")
       .select("id, title, message_count, last_message_at, created_at, scope")
       .eq("user_id", userId)
-      .eq("scope", scope)
       .order("last_message_at", { ascending: false })
       .limit(50);
 

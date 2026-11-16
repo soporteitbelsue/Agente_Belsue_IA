@@ -1,9 +1,10 @@
 /**
  * Ámbitos del asistente.
  *
- * Cada ámbito es una pestaña independiente del agente: tiene su propio
- * conocimiento (documentos y notas), su propio historial de conversaciones y su
- * propio prompt de sistema (ver `lib/prompts.ts`).
+ * Cada ámbito es un portal con su propio conocimiento (documentos y notas) y
+ * sus secciones. El CHAT, en cambio, es común a los dos: un solo agente que
+ * busca en el material de ambos, con un solo historial y un solo prompt (ver
+ * `lib/prompts.ts`).
  *
  *   - 'seguros'        → El Formador: producto, compañías, condicionados.
  *   - 'procedimientos' → Cómo trabajamos por dentro: organización de la
@@ -94,6 +95,25 @@ export interface ScopeConfig {
   extraLinks?: { label: string; href: string; icon: ExtraLinkIcon }[];
 }
 
+/**
+ * El chat es el mismo en los dos portales (mismo agente, mismo conocimiento y
+ * mismo historial), así que también lo es su bienvenida y sus sugerencias.
+ */
+const CHAT_WELCOME = `¡Hola! Soy el asistente interno de Belsué. Puedo ayudarte con:
+- Coberturas y condicionados de las compañías, y comparativas entre productos
+- Argumentarios de venta y objeciones
+- Cómo trabajamos por dentro: quién lleva cada cosa y los pasos de cada trámite
+- Herramientas y programas de la oficina
+
+¿En qué puedo ayudarte hoy?`;
+
+const CHAT_SUGGESTIONS = [
+  "¿Qué cubre el seguro de hogar de Mapfre?",
+  "¿Qué compañía va mejor para un conductor novel?",
+  "¿Qué pasos sigo para dar de alta una póliza nueva?",
+  "¿Cómo abro un ticket saliente en Belchat?",
+];
+
 const SEGUROS: ScopeConfig = {
   id: "seguros",
   title: "El Formador",
@@ -101,18 +121,8 @@ const SEGUROS: ScopeConfig = {
   path: "/chat",
   description:
     "Producto, compañías y condicionados: todo lo que necesitas para asesorar.",
-  welcome: `¡Hola! Soy el asistente interno de Belsué. Puedo ayudarte con dudas sobre:
-- Coberturas y condicionados de compañías aseguradoras
-- Comparativas entre productos
-- Argumentarios de venta y objeciones
-- Cualquier duda sobre los ramos que gestionamos
-
-¿En qué puedo ayudarte hoy?`,
-  suggestions: [
-    "¿Qué cubre el seguro de hogar de Mapfre?",
-    "Diferencias entre cobertura de terceros y todo riesgo",
-    "¿Qué compañía va mejor para un conductor novel?",
-  ],
+  welcome: CHAT_WELCOME,
+  suggestions: CHAT_SUGGESTIONS,
   secondaryField: {
     label: "Compañía aseguradora",
     placeholder: "Ej: Mapfre, Allianz, AXA, Generali...",
@@ -139,18 +149,8 @@ const PROCEDIMIENTOS: ScopeConfig = {
   path: "/procedimientos",
   description:
     "Cómo trabajamos por dentro: organización, circuitos y herramientas de la oficina.",
-  welcome: `¡Hola! Soy el asistente de procedimientos internos de Belsué. Aquí resuelvo dudas sobre cómo trabajamos por dentro:
-- Cómo nos organizamos y quién se encarga de cada cosa
-- Pasos de los trámites internos (altas, modificaciones, siniestros, cobros)
-- Herramientas y programas que usamos y cómo los usamos
-- Normas y rutinas del día a día de la oficina
-
-¿Qué necesitas saber?`,
-  suggestions: [
-    "¿Qué pasos sigo para dar de alta una póliza nueva?",
-    "¿Cómo abro un ticket saliente en Belchat?",
-    "¿Cómo se mete una nueva credencial en Aunna Pass?",
-  ],
+  welcome: CHAT_WELCOME,
+  suggestions: CHAT_SUGGESTIONS,
   secondaryField: {
     label: "Área o responsable",
     placeholder: "Ej: Recepción, Producción, Siniestros, Dirección...",

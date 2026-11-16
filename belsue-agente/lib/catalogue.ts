@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/supabase";
 import { categoryLabels } from "@/lib/categoriesServer";
-import { type AgentScope } from "@/lib/scopes";
+import { SCOPE_LIST, type AgentScope } from "@/lib/scopes";
 
 /**
  * Catálogo del portal: la lista de TODO lo que hay, solo con los nombres.
@@ -59,4 +59,18 @@ export async function buildCatalogue(scope: AgentScope): Promise<string> {
   }
 
   return lineas.join("\n");
+}
+
+/**
+ * Catálogo de los dos portales, uno detrás de otro con su nombre delante. El
+ * chat es común, así que el agente necesita ver todo lo que existe.
+ */
+export async function buildFullCatalogue(): Promise<string> {
+  const partes = await Promise.all(
+    SCOPE_LIST.map(async (portal) => {
+      const lista = await buildCatalogue(portal.id);
+      return lista ? `## ${portal.title}\n${lista}` : "";
+    }),
+  );
+  return partes.filter(Boolean).join("\n\n");
 }
