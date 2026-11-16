@@ -4,6 +4,7 @@ import type { ChatMessage } from "@/types";
 import { parseQuickReplies } from "@/lib/quickReplies";
 import { downloadAsPdf, guessTitle } from "@/lib/fichaPdf";
 import Markdown from "./Markdown";
+import SourceDocuments from "./SourceDocuments";
 import ThinkingDots from "./ThinkingDots";
 
 /** Botón de acción bajo la respuesta: sin fondo, icono gris, 44 px de área. */
@@ -17,10 +18,6 @@ interface Props {
   showOptions?: boolean;
   /** Envía la opción elegida como siguiente mensaje. */
   onOption?: (option: string) => void;
-  /** Se llama al pulsar el chip de fuentes (muestra el panel derecho). */
-  onShowSources?: () => void;
-  /** true si las fuentes de este mensaje son las activas en el panel. */
-  sourcesActive?: boolean;
   /** Guarda (o quita) la valoración de la respuesta. */
   onFeedback?: (id: string, value: 1 | -1 | null) => void;
 }
@@ -30,8 +27,6 @@ export default function MessageBubble({
   isStreaming = false,
   showOptions = false,
   onOption,
-  onShowSources,
-  sourcesActive = false,
   onFeedback,
 }: Props) {
   // Los hooks van antes del retorno de los mensajes del usuario: deben
@@ -51,13 +46,7 @@ export default function MessageBubble({
     );
   }
 
-  // Contamos DOCUMENTOS, no fragmentos: una respuesta puede apoyarse en varios
-  // trozos del mismo documento, y decir "8 fuentes" cuando la fuente es una
-  // sola confunde.
   const sources = message.sources ?? [];
-  const documentCount = new Set(
-    sources.map((s) => s.documentId ?? s.documentName),
-  ).size;
   const canRate = !!message.id && !!onFeedback && !isStreaming;
   const fb = message.feedback ?? null;
 
@@ -117,32 +106,15 @@ export default function MessageBubble({
           </div>
         )}
 
-        {/* Acciones: fuentes, PDF y valoración. Botones sin fondo con iconos de
-            trazo en gris y área táctil de 44 px. */}
-        {(documentCount > 0 || canDownload || canRate) && (
-          <div className="-ml-2.5 mt-0.5 flex flex-wrap items-center">
-            {documentCount > 0 && (
-              <button
-                type="button"
-                onClick={onShowSources}
-                aria-pressed={sourcesActive}
-                className="group/src flex h-11 items-center px-1"
-              >
-                <span
-                  className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors duration-150 ${
-                    sourcesActive
-                      ? "bg-ios-fill-hover text-ios-label"
-                      : "bg-ios-fill text-ios-secondary group-hover/src:bg-ios-fill-hover"
-                  }`}
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                  </svg>
-                  {documentCount} {documentCount === 1 ? "fuente" : "fuentes"}
-                </span>
-              </button>
-            )}
+        {/* Documentos de los que sale la respuesta: un clic abre el PDF. */}
+        {sources.length > 0 && !isStreaming && (
+          <SourceDocuments sources={sources} answer={text} />
+        )}
 
+        {/* Acciones: PDF y valoración. Botones sin fondo con iconos de trazo
+            en gris y área táctil de 44 px. */}
+        {(canDownload || canRate) && (
+          <div className="-ml-2.5 mt-0.5 flex flex-wrap items-center">
             {/* Descarga en PDF: pensado para la ficha rellena, que se sube al
                 programa de tarificación, pero sirve para cualquier respuesta. */}
             {canDownload && (

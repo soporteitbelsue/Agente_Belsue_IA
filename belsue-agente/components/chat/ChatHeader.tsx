@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { useSources } from "./SourcesContext";
 import PortalLogo from "@/components/PortalLogo";
 import { SCOPE_LIST, scopeConfig, type AgentScope } from "@/lib/scopes";
 
@@ -158,7 +157,6 @@ export default function ChatHeader({
   const config = scopeConfig(scope);
   const { data: session } = useSession();
   const user = session?.user;
-  const sources = useSources();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -287,24 +285,6 @@ export default function ChatHeader({
 
           {menuOpen && (
             <div className={`${DROPDOWN} w-72`}>
-              {sources?.available && (
-                <MenuRow
-                  icon={ICONS.sources}
-                  onClick={() => {
-                    sources.setOpen(!sources.open);
-                    close();
-                  }}
-                  trailing={
-                    <span className="rounded-full bg-ios-fill px-2 text-[13px] text-ios-secondary">
-                      {sources.count}
-                    </span>
-                  }
-                >
-                  {sources.open ? "Ocultar fuentes" : "Ver fuentes"}
-                </MenuRow>
-              )}
-
-              {sources?.available && <div className="my-1 border-t border-ios-separator" />}
               {!!config.extraLinks?.length && (
                 <>
                   {config.extraLinks.map((link) => (

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import SessionWrapper from "@/components/SessionWrapper";
 import SiteHeader from "@/components/SiteHeader";
-import { SourcesProvider } from "@/components/chat/SourcesContext";
 import CategoriesProvider from "@/components/CategoriesProvider";
 import { loadCategories } from "@/lib/categoriesServer";
 
@@ -37,11 +36,8 @@ export default async function RootLayout({
       <body className="flex h-screen flex-col text-gray-800 antialiased">
         <SessionWrapper>
           <CategoriesProvider initial={categories}>
-            {/* El botón de fuentes vive en la cabecera y el panel en el chat. */}
-            <SourcesProvider>
-              <SiteHeader />
-              <main className="flex min-h-0 flex-1 flex-col">{children}</main>
-            </SourcesProvider>
+            <SiteHeader />
+            <main className="flex min-h-0 flex-1 flex-col">{children}</main>
           </CategoriesProvider>
         </SessionWrapper>
       </body>

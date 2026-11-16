@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_SCOPE, scopeConfig, type AgentScope } from "@/lib/scopes";
 import type { ChatMessage, Message, Source } from "@/types";
 import MessageBubble from "./MessageBubble";
-import SourcesPanel from "./SourcesPanel";
-import { useSources } from "./SourcesContext";
 
 const MAX_TEXTAREA_LINES = 4;
 
@@ -59,17 +57,6 @@ export default function ChatWindow({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [streamingIndex, setStreamingIndex] = useState<number | null>(null);
   const lastQueryRef = useRef<string | null>(null);
-  // Mensaje cuyas fuentes están "fijadas" en el panel (null = seguir la última).
-  const [pinnedIndex, setPinnedIndex] = useState<number | null>(null);
-  // El panel se abre desde el botón de la cabecera: plegado por defecto, para
-  // que la conversación se lleve todo el ancho hasta que quieras comprobar de
-  // dónde sale una respuesta.
-  const sources = useSources();
-  const sourcesOpen = sources?.open ?? false;
-  const setSourcesOpen = useCallback(
-    (open: boolean) => sources?.setOpen(open),
-    [sources],
-  );
   // Id de la conversación ya cargada en este panel (puede crearse al enviar).
   // Empieza vacío aunque la URL traiga ?id=: si se inicializase con ese id,
   // el efecto de carga lo daría por cargado y, al recargar la página o abrir
@@ -153,7 +140,6 @@ export default function ChatWindow({
     async (text: string) => {
       setError(null);
       setIsLoading(true);
-      setPinnedIndex(null); // el panel vuelve a seguir la última respuesta
       lastQueryRef.current = text;
 
       // El historial (memoria de la conversación) se lee del ref de forma
@@ -362,35 +348,6 @@ export default function ChatWindow({
   const showSuggestions =
     messages.length === 1 && messages[0] === welcomeMessage && !isLoading;
 
-  // Índice del último mensaje del asistente que tiene fuentes.
-  const latestSourceIndex = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if ((messages[i]?.sources?.length ?? 0) > 0) return i;
-    }
-    return null;
-  }, [messages]);
-
-  // Mensaje cuyas fuentes se muestran: el fijado o, si no, el último con fuentes.
-  const activeSourceIndex = pinnedIndex ?? latestSourceIndex;
-  const displayedSources =
-    activeSourceIndex !== null
-      ? (messages[activeSourceIndex]?.sources ?? null)
-      : null;
-
-  // Avisa a la cabecera de que hay un chat delante, para que muestre su botón
-  // de fuentes; al salir del chat, lo esconde y cierra el panel.
-  const setAvailable = sources?.setAvailable;
-  const setSourcesCount = sources?.setCount;
-
-  useEffect(() => {
-    setAvailable?.(true);
-    return () => setAvailable?.(false);
-  }, [setAvailable]);
-
-  useEffect(() => {
-    setSourcesCount?.(displayedSources?.length ?? 0);
-  }, [displayedSources, setSourcesCount]);
-
   return (
     <div className="flex h-full min-h-0">
       {/* Columna del chat (min-w-0: un texto largo sin cortes no la ensancha) */}
@@ -410,11 +367,6 @@ export default function ChatWindow({
                   // anteriores ya no vienen a cuento.
                   showOptions={i === messages.length - 1 && !isLoading}
                   onOption={sendMessage}
-                  sourcesActive={activeSourceIndex === i}
-                  onShowSources={() => {
-                    setPinnedIndex(i);
-                    setSourcesOpen(true);
-                  }}
                   onFeedback={submitFeedback}
                 />
               </div>
@@ -507,32 +459,6 @@ export default function ChatWindow({
           </div>
         </div>
       </div>
-
-      {/* Panel de fuentes: al margen en pantallas grandes… */}
-      {sourcesOpen && (
-        <aside className="animate-slide-in hidden w-80 shrink-0 border-l border-ios-separator pt-16 lg:block">
-          <SourcesPanel
-            sources={displayedSources}
-            onClose={() => setSourcesOpen(false)}
-          />
-        </aside>
-      )}
-
-      {/* …y como cajón superpuesto en las pequeñas. */}
-      {sourcesOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setSourcesOpen(false)}
-          />
-          <aside className="animate-slide-in absolute right-0 top-0 h-full w-[85%] max-w-[340px] border-l border-gray-200 shadow-xl">
-            <SourcesPanel
-              sources={displayedSources}
-              onClose={() => setSourcesOpen(false)}
-            />
-          </aside>
-        </div>
-      )}
     </div>
   );
 }
