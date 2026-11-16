@@ -11,6 +11,7 @@ const TABS = [
   { href: "/admin/formacion", label: "Formación" },
   { href: "/admin/usuarios", label: "Usuarios" },
   { href: "/admin/metrics", label: "Métricas" },
+  { href: "/admin/calidad", label: "Calidad" },
 ];
 
 export default function AdminTabs({ active }: { active: string }) {
