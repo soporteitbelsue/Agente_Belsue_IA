@@ -5,6 +5,7 @@ import {
   SEARCH_MODES,
   type SearchMode,
 } from "@/lib/retrieval";
+import type { Source } from "@/types";
 
 /**
  * Evaluación de la búsqueda.
@@ -31,6 +32,8 @@ interface EvalQuestion {
   expected_document_id: string;
   origen: string;
   documents: { name: string } | null;
+  /** Fragmento con el que se escribió la pregunta. */
+  document_chunks: { content: string } | null;
 }
 
 export interface ModeSummary {
@@ -82,10 +85,53 @@ export async function listQuestions(): Promise<EvalQuestion[]> {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("eval_questions")
-    .select("id, question, expected_document_id, origen, documents(name)")
+    .select(
+      "id, question, expected_document_id, origen, documents(name), document_chunks(content)",
+    )
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as EvalQuestion[];
+}
+
+/** Minúsculas, espacios simples: para comparar nombres y textos. */
+function flat(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** Trozo del fragmento de origen que, si aparece, delata que llegó el dato. */
+const PROBE_LENGTH = 160;
+
+/**
+ * Posición (1 = primero) del primer documento recibido que contiene la
+ * respuesta, o null si no llega ninguno.
+ *
+ * No basta con mirar el id del documento: la base tiene documentos subidos dos
+ * veces con el mismo nombre, y productos hermanos (moto, robo, pérdida total)
+ * con cláusulas idénticas. Si el agente recibe cualquiera de ellos, tiene el
+ * dato. Así que vale el mismo id, el mismo nombre o el mismo texto: un trozo
+ * del centro del fragmento con el que se escribió la pregunta.
+ */
+function answerPosition(q: EvalQuestion, sources: Source[]): number | null {
+  const expectedName = q.documents?.name ? flat(q.documents.name) : null;
+  const origin = q.document_chunks?.content ? flat(q.document_chunks.content) : "";
+  const start = Math.max(0, Math.floor((origin.length - PROBE_LENGTH) / 2));
+  const probe = origin.length >= PROBE_LENGTH ? origin.slice(start, start + PROBE_LENGTH) : origin;
+
+  const order: string[] = [];
+  const hit = new Set<string>();
+  for (const s of sources) {
+    const key = s.documentId ?? s.documentName;
+    if (!order.includes(key)) order.push(key);
+    if (
+      s.documentId === q.expected_document_id ||
+      (expectedName !== null && flat(s.documentName) === expectedName) ||
+      (probe.length > 0 && flat(s.content).includes(probe))
+    ) {
+      hit.add(key);
+    }
+  }
+  const index = order.findIndex((key) => hit.has(key));
+  return index === -1 ? null : index + 1;
 }
 
 /** Pasa la batería por los tres modos de búsqueda. */
@@ -99,7 +145,7 @@ export async function runEvaluation(): Promise<EvalReport> {
 
     for (const mode of SEARCH_MODES) {
       const start = Date.now();
-      let docIds: string[] = [];
+      let pos: number | null = null;
       try {
         const sources = await retrieveRelevantChunks(
           q.question,
@@ -107,7 +153,7 @@ export async function runEvaluation(): Promise<EvalReport> {
           undefined,
           mode,
         );
-        docIds = [...new Set(sources.map((s) => s.documentId ?? ""))];
+        pos = answerPosition(q, sources);
         if (mode === "rerank") {
           obtenidos = [...new Set(sources.map((s) => s.documentName))];
         }
@@ -115,8 +161,7 @@ export async function runEvaluation(): Promise<EvalReport> {
         console.error(`[eval] Falló la búsqueda (${mode}):`, err);
       }
       tiempos[mode] = Date.now() - start;
-      const pos = docIds.indexOf(q.expected_document_id);
-      posiciones[mode] = pos === -1 ? null : pos + 1;
+      posiciones[mode] = pos;
     }
 
     return {
@@ -178,7 +223,9 @@ const QUESTION_FORMAT = {
 
 const QUESTION_PROMPT = `Te paso un fragmento de un documento interno de una correduría de seguros (un condicionado, una nota, un procedimiento o una lección de un curso), con el nombre del documento y su compañía o área.
 
-Escribe UNA pregunta que haría un empleado de la correduría en el chat interno y que este fragmento responde. Escríbela como la escribiría de verdad: natural, corta, en español, sin copiar frases literales del fragmento y sin citar el título del documento. Menciona la compañía, el ramo o el producto solo si alguien lo diría para que se le entienda (por ejemplo "¿la franquicia del hogar de Mapfre?").
+Escribe UNA pregunta que haría un empleado de la correduría en el chat interno y que este fragmento responde. Escríbela como la escribiría de verdad: natural, corta, en español, sin copiar frases literales del fragmento y sin citar el título del documento.
+
+Si el documento es de una compañía, la pregunta DEBE nombrar la compañía y el producto o ramo (por ejemplo "¿la franquicia del hogar de Mapfre?", "¿qué cubre el auto de Allianz si...?"). Muchas cláusulas (Consorcio, reclamaciones, plazos para comunicar un siniestro) son casi iguales en todos los condicionados: sin compañía ni producto, la pregunta no tendría una respuesta única. Si es una nota, un procedimiento o una lección interna, no hace falta compañía.
 
 Si el fragmento no tiene información útil para nadie (un índice, una portada, texto legal genérico, una tabla sin datos), marca valida = false.`;
 
