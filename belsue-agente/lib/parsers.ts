@@ -127,24 +127,159 @@ function ensureSumPrecise(): void {
   };
 }
 
+/** Trozo de texto de un documento, con la página de la que sale (si la hay). */
+export interface TextSegment {
+  /** Página (1 = primera) en los PDF; null en el resto de formatos. */
+  page: number | null;
+  text: string;
+}
+
+/** Resultado de leer un PDF, con lo necesario para saber cómo fue. */
+export interface PdfReadStats {
+  pages: number;
+  /** Páginas leídas con el modelo de visión (tablas, escaneados). */
+  visionPages: number;
+}
+
 /**
- * Extrae el texto de un PDF usando `unpdf` (que trae una versión moderna de
- * pdf.js). Reemplaza a `pdf-parse`, cuyo pdf.js de 2018 fallaba en algunos
- * PDFs con "Invalid number: ... (charCode N)".
+ * Por debajo de esto, la página es sobre todo imagen: un escaneado, o una guía
+ * hecha con capturas de pantalla cuyo contenido no está en el texto. Una
+ * página normal de condicionado pasa de 2.000 caracteres.
  */
-async function extractPdfText(buffer: Buffer): Promise<string> {
+const SCANNED_MAX_CHARS = 400;
+/** Tope de páginas por documento que se leen con visión, para acotar coste. */
+const MAX_VISION_PAGES = 60;
+/** Páginas leídas con visión a la vez. */
+const VISION_CONCURRENCY = 3;
+/** Resolución del render: 2 = el doble de 72 ppp, legible para tablas. */
+const RENDER_SCALE = 2;
+
+/**
+ * ¿Hace falta mirar la página, no solo leer su texto?
+ *
+ * - Escaneada: casi no tiene texto extraíble.
+ * - Tabla: muchas líneas cortas con cifras (límites, franquicias, primas).
+ *   El texto de una tabla sale como una lista de celdas sueltas sin saber
+ *   a qué fila ni columna pertenece cada una; leída como imagen, sí.
+ */
+function pageNeedsVision(text: string): "escaneada" | "tabla" | null {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (compact.length < SCANNED_MAX_CHARS) return "escaneada";
+
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 10) return null;
+  const tabular = lines.filter(
+    (l) => l.length <= 40 && /(\d|€|%)/.test(l),
+  ).length;
+  return tabular / lines.length >= 0.3 ? "tabla" : null;
+}
+
+const PDF_PAGE_PROMPT = `Eres el lector de documentos de una correduría de seguros. Te paso una página de un PDF (condicionado, ficha de producto, tarifa, folleto, manual...).
+
+Devuelve en español, en texto plano, el contenido completo de la página para que se pueda consultar sin verla:
+- Transcribe literalmente todo el texto, en orden de lectura. Respeta títulos, numeración de artículos y cláusulas.
+- Las TABLAS, fila a fila, repitiendo en cada fila el nombre de cada columna: "Garantía: Robo | Límite: 3.000 € | Franquicia: 150 €". Así cada fila se entiende sola. Si una celda abarca varias filas, repite su valor en cada una.
+- Las casillas marcadas (✓, X, "incluido") dilo así en cada fila.
+- Si hay gráficos o esquemas, explica brevemente qué dicen.
+- Omite cabeceras y pies de página repetitivos (logotipos, número de página, datos registrales).
+No inventes nada que no se vea. No añadas introducciones ni comentarios.`;
+
+/** Lee una página renderizada con el modelo de visión. */
+async function readPageImage(png: ArrayBuffer): Promise<string> {
+  const completion = await openai.chat.completions.create({
+    model: CHAT_MODEL,
+    messages: [
+      { role: "system", content: PDF_PAGE_PROMPT },
+      {
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/png;base64,${Buffer.from(png).toString("base64")}`,
+              detail: "high",
+            },
+          },
+        ],
+      },
+    ],
+  });
+  return completion.choices[0]?.message?.content?.trim() ?? "";
+}
+
+/**
+ * Lee un PDF página a página. El texto se extrae con `unpdf` (pdf.js moderno;
+ * reemplaza a `pdf-parse`, que fallaba en algunos PDFs con "Invalid number").
+ * Las páginas escaneadas o con tablas se renderizan como imagen y se las lee
+ * el modelo de visión, que entiende filas y columnas. Si la visión falla, se
+ * queda el texto extraído: peor leído, pero nunca se pierde una página.
+ *
+ * `vision: false` se salta ese paso (más rápido y gratis).
+ */
+export async function readPdf(
+  buffer: Buffer,
+  { vision = true }: { vision?: boolean } = {},
+): Promise<{ segments: TextSegment[]; stats: PdfReadStats }> {
   ensureSumPrecise();
-  const { getDocumentProxy } = await import("unpdf");
+  const { getDocumentProxy, renderPageAsImage } = await import("unpdf");
   // unpdf reutiliza el buffer internamente; copiamos a un Uint8Array propio.
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
 
-  const pages: string[] = [];
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-    const page = await pdf.getPage(pageNumber);
-    const { items } = await page.getTextContent();
-    pages.push(itemsToText(items));
+  try {
+    const texts: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      const { items } = await page.getTextContent();
+      texts.push(cleanText(itemsToText(items)));
+    }
+
+    // Qué páginas mirar: primero las escaneadas (sin ellas no hay nada) y
+    // luego las tablas, hasta el tope.
+    const candidates = vision
+      ? texts
+          .map((text, i) => ({ i, kind: pageNeedsVision(text) }))
+          .filter((c) => c.kind !== null)
+          .sort((a, b) =>
+            a.kind === b.kind ? a.i - b.i : a.kind === "escaneada" ? -1 : 1,
+          )
+          .slice(0, MAX_VISION_PAGES)
+      : [];
+
+    let visionPages = 0;
+    let next = 0;
+    const worker = async () => {
+      while (next < candidates.length) {
+        const { i } = candidates[next++]!;
+        try {
+          const png = await renderPageAsImage(pdf, i + 1, {
+            canvasImport: () => import("@napi-rs/canvas"),
+            scale: RENDER_SCALE,
+          });
+          const read = cleanText(await readPageImage(png));
+          // Una lectura mucho más corta que el texto extraído es sospechosa
+          // (se ha cortado o ha resumido): mejor quedarse con el texto.
+          if (read && read.length >= (texts[i]?.length ?? 0) * 0.5) {
+            texts[i] = read;
+            visionPages++;
+          }
+        } catch (err) {
+          console.error(
+            `[pdf] No se pudo leer la página ${i + 1} con visión:`,
+            err instanceof Error ? err.message : err,
+          );
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: VISION_CONCURRENCY }, worker));
+
+    const segments = texts
+      .map((text, i) => ({ page: i + 1, text }))
+      .filter((s) => s.text.length > 0);
+    return { segments, stats: { pages: pdf.numPages, visionPages } };
+  } finally {
+    // Libera la memoria de las páginas y fuentes cargadas.
+    await pdf.cleanup();
   }
-  return pages.join("\n");
 }
 
 /** Devuelve el texto de los nodos `<a:t>` de un XML de OOXML, en orden. */
@@ -263,7 +398,10 @@ export async function extractTextFromBuffer(
 
   switch (type) {
     case "pdf": {
-      return cleanText(await extractPdfText(buffer));
+      // Solo texto (sin visión): este camino no guarda páginas. Para indexar
+      // se usa extractSegments, que sí las lee bien.
+      const { segments } = await readPdf(buffer, { vision: false });
+      return segments.map((s) => s.text).join("\n\n");
     }
     case "docx": {
       const result = await mammoth.extractRawText({ buffer });
@@ -282,6 +420,21 @@ export async function extractTextFromBuffer(
     default:
       throw new Error(`Tipo de archivo no soportado: ${fileType}`);
   }
+}
+
+/**
+ * Texto de un archivo, para indexarlo. Los PDF van página a página (con el
+ * lector de visión para tablas y escaneados); el resto, en un solo trozo.
+ */
+export async function extractSegments(
+  buffer: Buffer,
+  fileType: string,
+): Promise<{ segments: TextSegment[]; stats: PdfReadStats | null }> {
+  if (fileType.toLowerCase() === "pdf") {
+    return readPdf(buffer);
+  }
+  const text = await extractTextFromBuffer(buffer, fileType);
+  return { segments: [{ page: null, text }], stats: null };
 }
 
 /**

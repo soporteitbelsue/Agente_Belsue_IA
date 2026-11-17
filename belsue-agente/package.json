@@ -14,6 +14,7 @@
     "seed-contactos": "ts-node --project scripts/tsconfig.json -r dotenv/config scripts/seed-contactos.ts dotenv_config_path=.env.local"
   },
   "dependencies": {
+    "@napi-rs/canvas": "1.0.13",
     "@supabase/supabase-js": "^2.45.4",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",

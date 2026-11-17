@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AdminTabs from "@/components/admin/AdminTabs";
+import PdfReindexer from "@/components/admin/PdfReindexer";
 import type { EvalReport, QuestionResult } from "@/lib/evaluation";
 import type { SearchMode } from "@/lib/retrieval";
 
@@ -94,6 +95,8 @@ export default function QualityPage() {
       </div>
 
       <AdminTabs active="/admin/calidad" />
+
+      <PdfReindexer />
 
       <div className="flex flex-wrap items-center gap-3">
         <button

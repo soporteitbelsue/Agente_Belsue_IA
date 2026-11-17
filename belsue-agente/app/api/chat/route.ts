@@ -92,7 +92,9 @@ function buildContext(sources: Source[]): string {
       (s) =>
         `--- Documento: ${s.documentName} | Compañía o área: ${
           s.company ?? "N/D"
-        } | Categoría: ${s.category ?? "N/D"} ---\n${s.content}`,
+        } | Categoría: ${s.category ?? "N/D"}${
+          s.page ? ` | Página: ${s.page}` : ""
+        } ---\n${s.content}`,
     )
     .join("\n\n");
 }

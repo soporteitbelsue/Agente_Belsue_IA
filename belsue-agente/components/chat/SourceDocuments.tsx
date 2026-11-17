@@ -13,6 +13,8 @@ interface Doc {
   id?: string;
   name: string;
   company?: string;
+  /** Página del fragmento más relevante: el PDF se abre ahí. */
+  page?: number;
   /** Fragmentos del documento que vio el agente (para las notas, sin archivo). */
   fragments: string[];
 }
@@ -45,12 +47,16 @@ function documentsFor(sources: Source[], answer: string): Doc[] {
     const doc = docs.get(key);
     if (doc) {
       doc.fragments.push(s.content);
+      doc.page ??= s.page;
     } else {
+      // Las fuentes vienen de más a menos relevantes: la primera página que
+      // aparece es la del fragmento que más pesa.
       docs.set(key, {
         key,
         id: s.documentId,
         name: s.documentName,
         company: s.company,
+        page: s.page,
         fragments: [s.content],
       });
     }
@@ -103,7 +109,11 @@ export default function SourceDocuments({
       const res = await fetch(`/api/documents/${doc.id}/view`);
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setViewing({ doc, url: data.url as string, video: data.video === true });
+        const video = data.video === true;
+        // El visor de PDF del navegador entiende #page=N y abre ahí.
+        const url =
+          !video && doc.page ? `${data.url as string}#page=${doc.page}` : (data.url as string);
+        setViewing({ doc, url, video });
         return;
       }
       const dl = await fetch(`/api/documents/${doc.id}/download`);
@@ -144,6 +154,9 @@ export default function SourceDocuments({
                 {doc.company && (
                   <span className="text-ios-secondary"> · {doc.company}</span>
                 )}
+                {doc.page && (
+                  <span className="text-ios-secondary"> · pág. {doc.page}</span>
+                )}
               </span>
               <span className="shrink-0 text-[13px] font-medium text-ios-accent">
                 {loadingKey === doc.key ? "Abriendo…" : "Ver"}
@@ -157,7 +170,11 @@ export default function SourceDocuments({
       {viewing && (
         <DocumentViewer
           title={viewing.doc.name}
-          subtitle={viewing.doc.company}
+          subtitle={
+            [viewing.doc.company, viewing.doc.page && `página ${viewing.doc.page}`]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
           {...("url" in viewing
             ? { url: viewing.url, video: viewing.video }
             : { text: viewing.text })}

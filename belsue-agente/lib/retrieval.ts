@@ -61,6 +61,7 @@ function toSource(row: MatchChunkRow): Source {
     category: row.document_category ?? undefined,
     content: row.content,
     similarity: row.similarity,
+    page: row.page ?? undefined,
   };
 }
 

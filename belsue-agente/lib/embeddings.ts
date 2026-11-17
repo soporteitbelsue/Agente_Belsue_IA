@@ -1,11 +1,14 @@
 import { openai, EMBEDDING_MODEL } from "@/lib/openai";
 import { supabaseServer } from "@/lib/supabase";
-import { extractTextFromBuffer, extractTextFromFile } from "@/lib/parsers";
+import {
+  extractSegments,
+  extractTextFromFile,
+  type TextSegment,
+} from "@/lib/parsers";
 import {
   buildChunkIdentity,
   buildMetadataHeader,
   chunkText,
-  dropDuplicates,
   type DocMeta,
 } from "@/lib/chunking";
 
@@ -22,13 +25,6 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     throw new Error("OpenAI no devolvió ningún embedding.");
   }
   return embedding;
-}
-
-interface ChunkRecord {
-  document_id: string;
-  content: string;
-  embedding: number[];
-  chunk_index: number;
 }
 
 interface LessonJoin {
@@ -65,66 +61,105 @@ async function fetchDocMeta(documentId: string): Promise<DocMeta | null> {
   };
 }
 
+/** Textos por petición de embeddings (la API admite listas). */
+const EMBED_BATCH = 50;
+/** Filas por inserción en la BBDD. */
+const INSERT_BATCH = 50;
+
+/** Embeddings de varios textos, en el mismo orden. */
+async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  const out: number[][] = [];
+  for (let i = 0; i < texts.length; i += EMBED_BATCH) {
+    const batch = texts.slice(i, i + EMBED_BATCH).map((t) => t.replace(/\n/g, " "));
+    const response = await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: batch,
+    });
+    const sorted = [...response.data].sort((a, b) => a.index - b.index);
+    if (sorted.length !== batch.length) {
+      throw new Error("OpenAI no devolvió todos los embeddings.");
+    }
+    out.push(...sorted.map((d) => d.embedding));
+  }
+  return out;
+}
+
+/** Qué ha salido de indexar un documento. */
+export interface IndexStats {
+  chunks: number;
+  /** Solo en PDF: páginas totales y leídas con visión. */
+  pages?: number;
+  visionPages?: number;
+}
+
 /**
- * Trocea un texto ya extraído, genera los embeddings y los guarda en
- * `document_chunks` en lotes de 20. Reemplaza los fragmentos previos del
- * documento, así que reprocesar es idempotente.
+ * Trocea el texto (por páginas si las hay), genera los embeddings y los guarda
+ * en `document_chunks`, sustituyendo los fragmentos previos del documento.
+ *
+ * Todo se prepara ANTES de borrar nada: si falla OpenAI a mitad, el documento
+ * conserva sus fragmentos anteriores en vez de quedarse vacío.
  */
-async function storeTextAsChunks(
+async function storeSegmentsAsChunks(
   documentId: string,
-  text: string,
-): Promise<void> {
+  segments: TextSegment[],
+): Promise<number> {
   const supabase = supabaseServer();
 
-  // Fusionamos la cabecera con el texto ANTES de trocear: así el primer
-  // fragmento contiene título + descripción + el inicio del contenido juntos.
-  // (Antes iban en fragmentos separados: si el título casaba con la consulta
-  // pero el contenido no, los pasos quedaban huérfanos y no se recuperaban.)
+  // La cabecera (título, compañía, descripción) va delante del primer trozo:
+  // así el primer fragmento contiene título + inicio del contenido juntos.
+  // (Si iban separados y el título casaba con la consulta pero el contenido
+  // no, los pasos quedaban huérfanos y no se recuperaban.)
   const meta = await fetchDocMeta(documentId);
   const header = buildMetadataHeader(meta);
-  const fullText = header ? `${header}\n\n${text}` : text;
-  const chunks = dropDuplicates(chunkText(fullText));
-  if (chunks.length === 0) {
+
+  // Cada página se trocea por separado para saber de qué página sale cada
+  // fragmento (y poder abrir el PDF justo ahí).
+  const pieces: { content: string; page: number | null }[] = [];
+  const seen = new Set<string>();
+  segments.forEach((segment, i) => {
+    const text = i === 0 && header ? `${header}\n\n${segment.text}` : segment.text;
+    for (const content of chunkText(text)) {
+      // Fuera los fragmentos repetidos (PDFs con páginas duplicadas).
+      const key = content.trim();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pieces.push({ content, page: segment.page });
+    }
+  });
+  if (pieces.length === 0) {
     throw new Error("No se pudo extraer texto del documento.");
   }
 
-  // Identidad corta que se antepone a CADA fragmento al calcular su embedding.
+  // Identidad corta que se antepone a CADA fragmento al calcular su embedding
+  // (no se guarda en el texto: es solo para buscar).
   const identity = buildChunkIdentity(meta);
+  const embeddings = await generateEmbeddings(
+    pieces.map((p) => (identity ? `${identity}\n${p.content}` : p.content)),
+  );
 
-  // Limpia chunks previos del documento (reprocesado idempotente).
+  const records = pieces.map((p, i) => ({
+    document_id: documentId,
+    content: p.content,
+    page: p.page,
+    embedding: embeddings[i]!,
+    chunk_index: i,
+  }));
+
   await supabase.from("document_chunks").delete().eq("document_id", documentId);
-
-  const BATCH_SIZE = 20;
-
-  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-    const batch = chunks.slice(i, i + BATCH_SIZE);
-
-    const records: ChunkRecord[] = await Promise.all(
-      batch.map(async (content, offset) => ({
-        document_id: documentId,
-        // Se guarda el texto tal cual: la identidad es solo para buscar, y en
-        // el panel de fuentes se lee el contenido limpio.
-        content,
-        embedding: await generateEmbedding(
-          identity ? `${identity}\n${content}` : content,
-        ),
-        chunk_index: i + offset,
-      })),
-    );
-
+  for (let i = 0; i < records.length; i += INSERT_BATCH) {
     const { error } = await supabase
       .from("document_chunks")
-      .upsert(records, { onConflict: "id" });
-
+      .insert(records.slice(i, i + INSERT_BATCH));
     if (error) {
       throw new Error(`Error al guardar chunks: ${error.message}`);
     }
   }
+  return records.length;
 }
 
 /**
- * Procesa un documento ya registrado: extrae texto del archivo, lo trocea,
- * genera los embeddings y los guarda en `document_chunks`.
+ * Procesa un documento ya registrado a partir de un archivo del disco.
+ * Se conserva para compatibilidad; el flujo normal usa Storage + buffer.
  */
 export async function processAndStoreDocument(
   documentId: string,
@@ -132,29 +167,29 @@ export async function processAndStoreDocument(
   fileType: string,
 ): Promise<void> {
   const text = await extractTextFromFile(filePath, fileType);
-  await storeTextAsChunks(documentId, text);
+  await storeSegmentsAsChunks(documentId, [{ page: null, text }]);
 }
 
 /**
- * Indexa un documento a partir de su buffer en memoria (descargado de Storage):
- * extrae texto, lo trocea, genera embeddings y los guarda en `document_chunks`.
+ * Indexa un documento a partir de su buffer en memoria (descargado de Storage).
+ * Los PDF se leen página a página, con visión para tablas y escaneados.
  */
 export async function processAndStoreBuffer(
   documentId: string,
   buffer: Buffer,
   fileType: string,
-): Promise<void> {
-  const text = await extractTextFromBuffer(buffer, fileType);
-  await storeTextAsChunks(documentId, text);
+): Promise<IndexStats> {
+  const { segments, stats } = await extractSegments(buffer, fileType);
+  const chunks = await storeSegmentsAsChunks(documentId, segments);
+  return { chunks, pages: stats?.pages, visionPages: stats?.visionPages };
 }
 
 /**
  * Indexa una nota de conocimiento: texto introducido a mano (sin archivo).
- * Trocea, genera embeddings y los guarda en `document_chunks`.
  */
 export async function processAndStoreText(
   documentId: string,
   text: string,
 ): Promise<void> {
-  await storeTextAsChunks(documentId, text);
+  await storeSegmentsAsChunks(documentId, [{ page: null, text }]);
 }

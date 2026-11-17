@@ -105,6 +105,8 @@ export interface Source {
   category?: string;
   content: string;
   similarity: number;
+  /** Página del PDF de la que sale el fragmento (si se conoce). */
+  page?: number;
 }
 
 /** Valoración de una respuesta del asistente: 1 = útil, -1 = poco útil. */
@@ -220,6 +222,8 @@ export interface MatchChunkRow {
   document_id: string;
   content: string;
   chunk_index: number;
+  /** Página del PDF (null en notas, Word… y en PDF aún no releídos). */
+  page?: number | null;
   similarity: number;
   document_name: string;
   document_category: string | null;

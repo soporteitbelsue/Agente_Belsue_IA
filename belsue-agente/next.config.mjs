@@ -1,7 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["unpdf", "mammoth", "imapflow", "mailparser"],
+    // @napi-rs/canvas es un módulo nativo (render de páginas de PDF): no se
+    // puede empaquetar, se carga tal cual desde node_modules.
+    serverComponentsExternalPackages: [
+      "unpdf",
+      "@napi-rs/canvas",
+      "mammoth",
+      "imapflow",
+      "mailparser",
+    ],
   },
 };
 
