@@ -261,3 +261,74 @@ export type ContactInput = Omit<
   Contact,
   "id" | "scope" | "created_at" | "updated_at"
 >;
+
+// --- Protocolos de incorporación (migración 018) ---
+
+export type ProtocolStatus = "en_curso" | "completada";
+
+export type ProtocolLogAction =
+  | "crear"
+  | "marcar"
+  | "desmarcar"
+  | "cambiar_responsable"
+  | "observaciones"
+  | "completar"
+  | "reabrir"
+  | "archivar"
+  | "desarchivar";
+
+/** Opción de una lista configurable (departamentos y responsables). */
+export interface KeyName {
+  key: string;
+  name: string;
+}
+
+/** Tipo de protocolo (una tarjeta) con el número de fichas en curso. */
+export interface ProtocolTemplate {
+  key: string;
+  name: string;
+  description: string | null;
+  asks_department: boolean;
+  date_label: string;
+  in_progress: number;
+}
+
+/** Fila de la lista de fichas (vista protocol_record_summary). */
+export interface ProtocolRecordSummary {
+  id: string;
+  template_key: string;
+  person_name: string;
+  start_date: string;
+  department_key: string | null;
+  department_name: string | null;
+  status: ProtocolStatus;
+  completed_at: string | null;
+  archived_at: string | null;
+  created_by_name: string | null;
+  created_at: string;
+  total_steps: number;
+  done_steps: number;
+}
+
+export interface ProtocolRecordStep {
+  id: string;
+  position: number;
+  text: string;
+  help: string | null;
+  allows_notes: boolean;
+  role_key: string;
+  completed: boolean;
+  completed_by_name: string | null;
+  completed_at: string | null;
+  notes: string | null;
+}
+
+export interface ProtocolLogEntry {
+  id: string;
+  step_id: string | null;
+  action: ProtocolLogAction;
+  user_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+}
