@@ -361,6 +361,46 @@ export default function FichaPage() {
     load();
   }, [load]);
 
+  // Vista del checklist: agrupado por responsable (por defecto) o en orden.
+  const [view, setView] = useState<"responsable" | "lista">("responsable");
+  // Desplegables abiertos a mano. Sin entrada = abierto si le quedan tareas
+  // pendientes; así marcar la última no cierra el grupo de golpe mientras
+  // se está trabajando en él (al pulsar, la decisión queda fijada).
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [initialPending] = useState(() => new Map<string, boolean>());
+
+  /** Tareas agrupadas por responsable, en el orden de la tabla de roles. */
+  const groups = useMemo(() => {
+    if (!data) return [];
+    const order = new Map(data.roles.map((r, i) => [r.key, i]));
+    const byRole = new Map<string, ProtocolRecordStep[]>();
+    for (const s of data.steps) {
+      const list = byRole.get(s.role_key) ?? [];
+      list.push(s);
+      byRole.set(s.role_key, list);
+    }
+    return Array.from(byRole.entries())
+      .map(([key, steps]) => ({
+        key,
+        name: data.roles.find((r) => r.key === key)?.name ?? key,
+        steps,
+      }))
+      .sort((a, b) => (order.get(a.key) ?? 999) - (order.get(b.key) ?? 999));
+  }, [data]);
+
+  /** Abierto o cerrado. La primera vez que se ve un grupo se decide por si
+   *  tenía pendientes y se recuerda, para que no salte al marcar. */
+  function isGroupOpen(key: string, hasPending: boolean): boolean {
+    const chosen = openGroups[key];
+    if (chosen !== undefined) return chosen;
+    if (!initialPending.has(key)) initialPending.set(key, hasPending);
+    return initialPending.get(key) ?? hasPending;
+  }
+
+  function setAllGroups(open: boolean) {
+    setOpenGroups(Object.fromEntries(groups.map((g) => [g.key, open])));
+  }
+
   const stepLabels = useMemo(() => {
     const map = new Map<string, string>();
     data?.steps.forEach((s) => map.set(s.id, `${s.position}. ${s.text}`));
@@ -516,17 +556,115 @@ export default function FichaPage() {
             {data.steps.length === 0 && (
               <p className="text-sm text-gray-500">Esta ficha no tiene pasos.</p>
             )}
-            <ol className="space-y-3">
-              {data.steps.map((s) => (
-                <StepRow
-                  key={s.id}
-                  step={s}
-                  roles={data.roles}
-                  busy={busyStep === s.id}
-                  onChange={(patch) => updateStep(s.id, patch)}
-                />
-              ))}
-            </ol>
+            {data.steps.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="inline-flex overflow-hidden rounded-md border border-gray-300">
+                  {(
+                    [
+                      ["responsable", "Por responsable"],
+                      ["lista", "Lista completa"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setView(value)}
+                      aria-pressed={view === value}
+                      className={`px-3 py-1.5 font-medium ${
+                        view === value ? "bg-belsue text-white" : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {view === "responsable" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setAllGroups(true)}
+                      className="font-medium text-belsue hover:underline"
+                    >
+                      Abrir todo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAllGroups(false)}
+                      className="font-medium text-belsue hover:underline"
+                    >
+                      Cerrar todo
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {view === "lista" ? (
+              <ol className="space-y-3">
+                {data.steps.map((s) => (
+                  <StepRow
+                    key={s.id}
+                    step={s}
+                    roles={data.roles}
+                    busy={busyStep === s.id}
+                    onChange={(patch) => updateStep(s.id, patch)}
+                  />
+                ))}
+              </ol>
+            ) : (
+              <div className="space-y-3">
+                {groups.map((g) => {
+                  const done = g.steps.filter((s) => s.completed).length;
+                  const open = isGroupOpen(g.key, done < g.steps.length);
+                  return (
+                    <div
+                      key={g.key}
+                      className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenGroups((prev) => ({ ...prev, [g.key]: !open }))
+                        }
+                        aria-expanded={open}
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className={`text-xs text-gray-400 transition-transform ${
+                              open ? "rotate-90" : ""
+                            }`}
+                            aria-hidden
+                          >
+                            ▶
+                          </span>
+                          <span className="font-semibold text-gray-800">{g.name}</span>
+                          {done === g.steps.length && (
+                            <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                              Hecho
+                            </span>
+                          )}
+                        </span>
+                        <Progress done={done} total={g.steps.length} />
+                      </button>
+                      {open && (
+                        <ol className="space-y-3 border-t border-gray-100 bg-gray-50/50 p-3">
+                          {g.steps.map((s) => (
+                            <StepRow
+                              key={s.id}
+                              step={s}
+                              roles={data.roles}
+                              busy={busyStep === s.id}
+                              onChange={(patch) => updateStep(s.id, patch)}
+                            />
+                          ))}
+                        </ol>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <AddStepForm roles={data.roles} onAdd={addStep} />
           </section>
 
