@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 const patchSchema = z
   .object({
+    text: z.string().trim().min(1, "El texto de la tarea no puede quedar vacío.").max(500).optional(),
     completed: z.boolean().optional(),
     role_key: z.string().trim().min(1).optional(),
     notes: z.string().max(2000, "Las observaciones son demasiado largas.").nullable().optional(),
@@ -35,9 +36,23 @@ export async function PATCH(
         { status: 400 },
       );
     }
-    const { completed, role_key, notes } = parsed.data;
-
+    const { text, completed, role_key, notes } = parsed.data;
     const supabase = supabaseServer();
+
+    // Cambio de texto (solo en esta ficha; la plantilla no se toca).
+    if (text !== undefined) {
+      const { error } = await supabase.rpc("protocol_edit_step_text", {
+        p_step_id: params.id,
+        p_text: text,
+        p_user_id: auth.actor.id,
+        p_user_name: auth.actor.name,
+      });
+      if (error) return protocolErrorResponse(error, "Error al editar la tarea");
+      if (completed === undefined && role_key === undefined && notes === undefined) {
+        return NextResponse.json({ success: true });
+      }
+    }
+
     const { error } = await supabase.rpc("protocol_update_step", {
       p_step_id: params.id,
       p_completed: completed ?? null,

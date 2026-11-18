@@ -147,14 +147,22 @@ export default function ProtocolTypePage() {
 
       {/* Nueva ficha */}
       {!showForm ? (
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          disabled={!template}
-          className="rounded-lg bg-belsue px-4 py-2.5 text-sm font-medium text-white hover:bg-belsue-700 disabled:opacity-40"
-        >
-          + Nueva ficha
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            disabled={!template}
+            className="rounded-lg bg-belsue px-4 py-2.5 text-sm font-medium text-white hover:bg-belsue-700 disabled:opacity-40"
+          >
+            + Nueva ficha
+          </button>
+          <Link
+            href={`/admin/protocolos/${tipo}/plantilla`}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Editar plantilla
+          </Link>
+        </div>
       ) : (
         <form
           onSubmit={handleCreate}

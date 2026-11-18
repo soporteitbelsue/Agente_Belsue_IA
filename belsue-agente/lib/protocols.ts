@@ -65,7 +65,10 @@ export const RECORD_SUMMARY_FIELDS =
   "id, template_key, person_name, start_date, department_key, department_name, status, completed_at, archived_at, created_by_name, created_at, total_steps, done_steps";
 
 export const RECORD_STEP_FIELDS =
-  "id, position, text, help, allows_notes, role_key, completed, completed_by_name, completed_at, notes";
+  "id, position, text, help, allows_notes, role_key, completed, completed_by_name, completed_at, notes, is_extra";
+
+export const TEMPLATE_STEP_FIELDS =
+  "id, position, text, help, default_role, condition, allows_notes";
 
 export const LOG_FIELDS =
   "id, step_id, action, user_name, old_value, new_value, created_at";

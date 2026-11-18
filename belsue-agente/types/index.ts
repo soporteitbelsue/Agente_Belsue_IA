@@ -275,7 +275,9 @@ export type ProtocolLogAction =
   | "completar"
   | "reabrir"
   | "archivar"
-  | "desarchivar";
+  | "desarchivar"
+  | "editar_texto"
+  | "anadir_paso";
 
 /** Opción de una lista configurable (departamentos y responsables). */
 export interface KeyName {
@@ -321,6 +323,20 @@ export interface ProtocolRecordStep {
   completed_by_name: string | null;
   completed_at: string | null;
   notes: string | null;
+  /** Tarea añadida a mano en esta ficha (no venía de la plantilla). */
+  is_extra: boolean;
+}
+
+/** Tarea de una plantilla (pantalla "Editar plantilla"). */
+export interface ProtocolTemplateStep {
+  id: string;
+  position: number;
+  text: string;
+  help: string | null;
+  default_role: string;
+  /** {"departments": [...]} → solo para esos departamentos; null = siempre. */
+  condition: { departments?: string[] } | null;
+  allows_notes: boolean;
 }
 
 export interface ProtocolLogEntry {

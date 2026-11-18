@@ -49,9 +49,109 @@ function describeLog(entry: ProtocolLogEntry, stepLabel: string | null): string 
       return "archivó la ficha";
     case "desarchivar":
       return "desarchivó la ficha";
+    case "editar_texto":
+      return `cambió el texto de una tarea: «${entry.old_value ?? ""}» → «${entry.new_value ?? ""}»`;
+    case "anadir_paso":
+      return `añadió la tarea «${entry.new_value ?? ""}»`;
     default:
       return entry.action;
   }
+}
+
+type StepPatch = {
+  text?: string;
+  completed?: boolean;
+  role_key?: string;
+  notes?: string | null;
+};
+
+/** Formulario para añadir una tarea extra solo a esta ficha. */
+function AddStepForm({
+  roles,
+  onAdd,
+}: {
+  roles: KeyName[];
+  onAdd: (text: string, roleKey: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [roleKey, setRoleKey] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-dashed border-gray-300 px-4 py-2 text-sm font-medium text-belsue hover:border-belsue hover:bg-belsue/5"
+      >
+        + Añadir tarea a esta ficha
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        const ok = await onAdd(text.trim(), roleKey);
+        setBusy(false);
+        if (ok) {
+          setText("");
+          setRoleKey("");
+          setOpen(false);
+        }
+      }}
+      className="space-y-3 rounded-lg border border-belsue/30 bg-white p-4"
+    >
+      <p className="text-xs text-gray-500">
+        Solo para esta persona. La plantilla no cambia.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          disabled={busy}
+          autoFocus
+          maxLength={500}
+          placeholder="Descripción de la tarea"
+          className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+        />
+        <select
+          value={roleKey}
+          onChange={(e) => setRoleKey(e.target.value)}
+          disabled={busy}
+          aria-label="Responsable"
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+        >
+          <option value="">Responsable…</option>
+          {roles.map((r) => (
+            <option key={r.key} value={r.key}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={busy || !text.trim() || !roleKey}
+          className="rounded-md bg-belsue px-3 py-1.5 text-sm font-medium text-white hover:bg-belsue-700 disabled:opacity-40"
+        >
+          {busy ? "Añadiendo…" : "Añadir tarea"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          disabled={busy}
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
 }
 
 function StepRow({
@@ -63,10 +163,17 @@ function StepRow({
   step: ProtocolRecordStep;
   roles: KeyName[];
   busy: boolean;
-  onChange: (patch: { completed?: boolean; role_key?: string; notes?: string | null }) => void;
+  onChange: (patch: StepPatch) => void;
 }) {
   const [draft, setDraft] = useState(step.notes ?? "");
   const [showNotes, setShowNotes] = useState(!!step.notes);
+  const [editingText, setEditingText] = useState(false);
+  const [textDraft, setTextDraft] = useState(step.text);
+
+  useEffect(() => {
+    setTextDraft(step.text);
+    setEditingText(false);
+  }, [step.text]);
 
   // Si la ficha se recarga, el borrador sigue a lo guardado.
   useEffect(() => {
@@ -91,14 +198,68 @@ function StepRow({
           className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-belsue disabled:cursor-wait"
         />
         <div className="min-w-0 flex-1">
-          <p
-            className={`text-sm font-medium ${
-              step.completed ? "text-gray-500 line-through decoration-gray-400" : "text-gray-800"
-            }`}
-          >
-            <span className="mr-1 tabular-nums text-gray-400">{step.position}.</span>
-            {step.text}
-          </p>
+          {editingText ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (textDraft.trim() && textDraft.trim() !== step.text) {
+                  onChange({ text: textDraft.trim() });
+                } else {
+                  setEditingText(false);
+                }
+              }}
+              className="flex flex-wrap gap-2"
+            >
+              <input
+                value={textDraft}
+                onChange={(e) => setTextDraft(e.target.value)}
+                disabled={busy}
+                autoFocus
+                maxLength={500}
+                className="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue"
+              />
+              <button
+                type="submit"
+                disabled={busy || !textDraft.trim()}
+                className="rounded-md bg-belsue px-3 py-1 text-xs font-medium text-white hover:bg-belsue-700 disabled:opacity-40"
+              >
+                Guardar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTextDraft(step.text);
+                  setEditingText(false);
+                }}
+                disabled={busy}
+                className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+            </form>
+          ) : (
+            <p
+              className={`text-sm font-medium ${
+                step.completed ? "text-gray-500 line-through decoration-gray-400" : "text-gray-800"
+              }`}
+            >
+              <span className="mr-1 tabular-nums text-gray-400">{step.position}.</span>
+              {step.text}
+              {step.is_extra && (
+                <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 align-middle text-[11px] font-medium text-sky-700 no-underline">
+                  Añadida en esta ficha
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setEditingText(true)}
+                disabled={busy}
+                className="ml-2 align-middle text-xs font-normal text-belsue hover:underline"
+              >
+                Editar
+              </button>
+            </p>
+          )}
           {step.help && <p className="mt-1 text-xs text-gray-500">{step.help}</p>}
           {step.completed && (
             <p className="mt-1 text-xs text-green-700">
@@ -206,10 +367,25 @@ export default function FichaPage() {
     return map;
   }, [data?.steps]);
 
-  async function updateStep(
-    stepId: string,
-    patch: { completed?: boolean; role_key?: string; notes?: string | null },
-  ) {
+  async function addStep(text: string, roleKey: string): Promise<boolean> {
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/protocolos/fichas/${id}/pasos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, role_key: roleKey }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Error al añadir la tarea.");
+      await load();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al añadir la tarea.");
+      return false;
+    }
+  }
+
+  async function updateStep(stepId: string, patch: StepPatch) {
     setBusyStep(stepId);
     setError(null);
     try {
@@ -351,6 +527,7 @@ export default function FichaPage() {
                 />
               ))}
             </ol>
+            <AddStepForm roles={data.roles} onAdd={addStep} />
           </section>
 
           {/* Historial */}
