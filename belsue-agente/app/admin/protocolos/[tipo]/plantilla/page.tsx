@@ -213,6 +213,9 @@ export default function TemplateEditorPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se ha podido guardar.");
+      // Lo pintado en pantalla puede no ser lo guardado (p. ej. un reordenado
+      // que ha fallado): se vuelve a lo que hay en la base.
+      await load();
     } finally {
       setBusy(false);
     }
@@ -266,20 +269,58 @@ export default function TemplateEditorPage() {
     );
   }
 
-  function move(index: number, delta: -1 | 1) {
-    const target = index + delta;
-    if (target < 0 || target >= steps.length) return;
-    const ids = steps.map((s) => s.id);
-    const moved = ids.splice(index, 1);
-    ids.splice(target, 0, ...moved);
+  /**
+   * Mueve la tarea de `from` para que quede delante de la que ahora ocupa
+   * `insertAt` (0..n; n = al final). El orden nuevo se pinta al momento y
+   * luego se guarda; si falla, `run` recarga el orden real.
+   */
+  function reorder(from: number, insertAt: number) {
+    const to = insertAt > from ? insertAt - 1 : insertAt;
+    if (to === from || to < 0 || to >= steps.length) return;
+    const next = [...steps];
+    const moved = next.splice(from, 1);
+    next.splice(to, 0, ...moved);
+    setSteps(next);
     run(() =>
       fetch(`/api/admin/protocolos/plantillas/${tipo}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
+        body: JSON.stringify({ ids: next.map((s) => s.id) }),
       }),
     );
   }
+
+  /** Flechas: una posición arriba o abajo. */
+  function move(index: number, delta: -1 | 1) {
+    reorder(index, delta === -1 ? index - 1 : index + 2);
+  }
+
+  // --- Arrastrar y soltar (nativo del navegador, sin librerías) ---
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  // Hueco donde caería: 0..n (delante de la tarea i; n = al final).
+  const [dropAt, setDropAt] = useState<number | null>(null);
+  const canDrag = !busy && editingId === null && !adding;
+
+  function handleDragOver(e: React.DragEvent<HTMLLIElement>, index: number) {
+    if (dragIndex === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    // Mitad de arriba de la tarjeta = delante; mitad de abajo = detrás.
+    const box = e.currentTarget.getBoundingClientRect();
+    const at = e.clientY < box.top + box.height / 2 ? index : index + 1;
+    if (at !== dropAt) setDropAt(at);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    if (dragIndex !== null && dropAt !== null) reorder(dragIndex, dropAt);
+    setDragIndex(null);
+    setDropAt(null);
+  }
+
+  /** Línea de "caerá aquí", salvo donde soltar no movería nada. */
+  const showDropLine = (at: number) =>
+    dragIndex !== null && dropAt === at && at !== dragIndex && at !== dragIndex + 1;
 
   const roleName = (key: string) => roles.find((r) => r.key === key)?.name ?? key;
   const deptNames = (keys: string[]) =>
@@ -313,9 +354,46 @@ export default function TemplateEditorPage() {
 
       {template && (
         <div className="space-y-3">
-          <ol className="space-y-2">
+          {steps.length > 1 && canDrag && (
+            <p className="text-xs text-gray-400">
+              Arrastra las tareas desde ⠿ para cambiarlas de orden, o usa las flechas.
+            </p>
+          )}
+          <ol className="space-y-2" onDragLeave={(e) => {
+            // Solo al salir de la lista entera, no al pasar de una tarjeta a otra.
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropAt(null);
+          }}>
             {steps.map((s, i) => (
-              <li key={s.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+              <li
+                key={s.id}
+                draggable={canDrag}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", s.id); // Firefox lo exige
+                  setDragIndex(i);
+                }}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={handleDrop}
+                onDragEnd={() => {
+                  setDragIndex(null);
+                  setDropAt(null);
+                }}
+                className={`relative rounded-lg border bg-white p-4 shadow-sm transition-opacity ${
+                  dragIndex === i ? "border-belsue opacity-40" : "border-gray-200"
+                }`}
+              >
+                {showDropLine(i) && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute -top-[6px] left-0 right-0 h-1 rounded-full bg-belsue"
+                  />
+                )}
+                {i === steps.length - 1 && showDropLine(steps.length) && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute -bottom-[6px] left-0 right-0 h-1 rounded-full bg-belsue"
+                  />
+                )}
                 {editingId === s.id ? (
                   <StepForm
                     initial={draftFrom(s)}
@@ -329,6 +407,15 @@ export default function TemplateEditorPage() {
                   />
                 ) : (
                   <div className="flex flex-wrap items-start gap-3">
+                    <span
+                      aria-hidden
+                      title="Arrastrar para cambiar el orden"
+                      className={`select-none self-center px-1 text-lg leading-none text-gray-400 ${
+                        canDrag ? "cursor-grab hover:text-belsue active:cursor-grabbing" : "opacity-30"
+                      }`}
+                    >
+                      ⠿
+                    </span>
                     <div className="flex flex-col">
                       <button
                         type="button"
