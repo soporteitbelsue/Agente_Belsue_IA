@@ -5,6 +5,7 @@ import {
   LOG_FIELDS,
   RECORD_STEP_FIELDS,
   RECORD_SUMMARY_FIELDS,
+  SUBSTEP_FIELDS,
   protocolErrorResponse,
   requireProtocolActor,
 } from "@/lib/protocols";
@@ -61,10 +62,26 @@ export async function GET(
     if (log.error) return protocolErrorResponse(log.error, "Error al leer el historial");
     if (roles.error) return protocolErrorResponse(roles.error, "Error al leer responsables");
 
+    // Checks de compañías de las tareas que los llevan.
+    const listSteps = (steps.data ?? [])
+      .filter((s) => s.subitems === "companias")
+      .map((s) => s.id as string);
+    let substeps: unknown[] = [];
+    if (listSteps.length > 0) {
+      const { data: subs, error: subError } = await supabase
+        .from("protocol_record_substeps")
+        .select(SUBSTEP_FIELDS)
+        .in("step_id", listSteps)
+        .order("position", { ascending: true });
+      if (subError) return protocolErrorResponse(subError, "Error al leer las compañías");
+      substeps = subs ?? [];
+    }
+
     return NextResponse.json({
       record,
       template: tpl.data,
       steps: steps.data ?? [],
+      substeps,
       log: log.data ?? [],
       roles: roles.data ?? [],
     });

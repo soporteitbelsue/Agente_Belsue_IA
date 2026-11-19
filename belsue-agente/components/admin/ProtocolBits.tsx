@@ -68,3 +68,28 @@ export function Progress({ done, total }: { done: number; total: number }) {
     </div>
   );
 }
+
+/** General (mismas credenciales para todos) / Particular (cada uno las suyas). */
+export function AccessTypeBadge({ type }: { type: string | null }) {
+  if (type === "general") {
+    return (
+      <span
+        title="Mismas credenciales para todos"
+        className="rounded bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700"
+      >
+        General
+      </span>
+    );
+  }
+  if (type === "particular") {
+    return (
+      <span
+        title="Cada persona tiene sus propias credenciales"
+        className="rounded bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700"
+      >
+        Particular
+      </span>
+    );
+  }
+  return null;
+}

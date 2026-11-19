@@ -277,7 +277,34 @@ export type ProtocolLogAction =
   | "archivar"
   | "desarchivar"
   | "editar_texto"
-  | "anadir_paso";
+  | "anadir_paso"
+  | "marcar_compania"
+  | "desmarcar_compania"
+  | "cargar_companias";
+
+/** Tipo de acceso a la web de una compañía. */
+export type CompanyAccessType = "general" | "particular";
+
+/** Compañía con la que trabajamos (Protocolos → Compañías). */
+export interface ProtocolCompany {
+  id: string;
+  name: string;
+  access_type: CompanyAccessType;
+  notes: string | null;
+}
+
+/** Check de una compañía dentro de una tarea de ficha. */
+export interface ProtocolSubstep {
+  id: string;
+  step_id: string;
+  position: number;
+  label: string;
+  /** Tipo de acceso copiado al cargarla ("general" | "particular"). */
+  detail: string | null;
+  completed: boolean;
+  completed_by_name: string | null;
+  completed_at: string | null;
+}
 
 /** Opción de una lista configurable (departamentos y responsables). */
 export interface KeyName {
@@ -325,6 +352,8 @@ export interface ProtocolRecordStep {
   notes: string | null;
   /** Tarea añadida a mano en esta ficha (no venía de la plantilla). */
   is_extra: boolean;
+  /** 'companias' = lleva un check por compañía. */
+  subitems: "companias" | null;
 }
 
 /** Tarea de una plantilla (pantalla "Editar plantilla"). */
@@ -337,6 +366,7 @@ export interface ProtocolTemplateStep {
   /** {"departments": [...]} → solo para esos departamentos; null = siempre. */
   condition: { departments?: string[] } | null;
   allows_notes: boolean;
+  subitems: "companias" | null;
 }
 
 export interface ProtocolLogEntry {

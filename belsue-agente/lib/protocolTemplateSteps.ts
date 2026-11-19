@@ -13,6 +13,8 @@ export const templateStepSchema = z.object({
   allows_notes: z.boolean().default(true),
   /** Vacío o ausente = la tarea sale para todos los departamentos. */
   departments: z.array(z.string()).optional(),
+  /** 'companias' = la tarea lleva un check por compañía. */
+  subitems: z.enum(["companias"]).nullable().optional(),
 });
 
 export type TemplateStepInput = z.infer<typeof templateStepSchema>;
@@ -34,6 +36,7 @@ export async function buildTemplateStepRow(
         default_role: string;
         allows_notes: boolean;
         condition: { departments: string[] } | null;
+        subitems: "companias" | null;
       };
     }
   | { response: NextResponse }
@@ -74,6 +77,7 @@ export async function buildTemplateStepRow(
       default_role: input.default_role,
       allows_notes: input.allows_notes,
       condition,
+      subitems: input.subitems ?? null,
     },
   };
 }

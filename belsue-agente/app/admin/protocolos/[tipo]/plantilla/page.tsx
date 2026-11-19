@@ -19,6 +19,7 @@ interface StepDraft {
   default_role: string;
   allows_notes: boolean;
   departments: string[];
+  companies: boolean;
 }
 
 const inputCls =
@@ -31,6 +32,7 @@ function draftFrom(step: ProtocolTemplateStep): StepDraft {
     default_role: step.default_role,
     allows_notes: step.allows_notes,
     departments: step.condition?.departments ?? [],
+    companies: step.subitems === "companias",
   };
 }
 
@@ -116,6 +118,23 @@ function StepForm({
           Admite observaciones
         </label>
       </div>
+
+      <label className="flex items-start gap-2 text-sm text-gray-600">
+        <input
+          type="checkbox"
+          checked={d.companies}
+          onChange={(e) => set("companies", e.target.checked)}
+          disabled={busy}
+          className="mt-0.5 h-4 w-4 accent-belsue"
+        />
+        <span>
+          Lleva la lista de compañías
+          <span className="block text-xs text-gray-400">
+            Un check por compañía (de Protocolos → Compañías). Con todas marcadas, la
+            tarea se marca sola.
+          </span>
+        </span>
+      </label>
 
       {asksDepartment && (
         <fieldset className="text-sm">
@@ -228,6 +247,7 @@ export default function TemplateEditorPage() {
       default_role: d.default_role,
       allows_notes: d.allows_notes,
       departments: d.departments,
+      subitems: d.companies ? "companias" : null,
     });
 
   function addStep(d: StepDraft) {
@@ -456,6 +476,11 @@ export default function TemplateEditorPage() {
                             Sin observaciones
                           </span>
                         )}
+                        {s.subitems === "companias" && (
+                          <span className="rounded bg-sky-100 px-2 py-0.5 font-medium text-sky-700">
+                            Lista de compañías
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -499,6 +524,7 @@ export default function TemplateEditorPage() {
                   default_role: "",
                   allows_notes: true,
                   departments: [],
+                  companies: false,
                 }}
                 roles={roles}
                 departments={departments}

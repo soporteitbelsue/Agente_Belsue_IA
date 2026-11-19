@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import AdminTabs from "@/components/admin/AdminTabs";
 import {
+  AccessTypeBadge,
   Progress,
   StatusBadge,
   formatDateTime,
@@ -15,12 +16,14 @@ import type {
   ProtocolLogEntry,
   ProtocolRecordStep,
   ProtocolRecordSummary,
+  ProtocolSubstep,
 } from "@/types";
 
 interface FichaData {
   record: ProtocolRecordSummary;
   template: { key: string; name: string; asks_department: boolean; date_label: string } | null;
   steps: ProtocolRecordStep[];
+  substeps: ProtocolSubstep[];
   log: ProtocolLogEntry[];
   roles: KeyName[];
 }
@@ -53,6 +56,12 @@ function describeLog(entry: ProtocolLogEntry, stepLabel: string | null): string 
       return `cambió el texto de una tarea: «${entry.old_value ?? ""}» → «${entry.new_value ?? ""}»`;
     case "anadir_paso":
       return `añadió la tarea «${entry.new_value ?? ""}»`;
+    case "marcar_compania":
+      return `marcó el acceso a ${entry.new_value ?? "una compañía"}`;
+    case "desmarcar_compania":
+      return `desmarcó el acceso a ${entry.new_value ?? "una compañía"}`;
+    case "cargar_companias":
+      return `cargó en ${paso} las compañías: ${entry.new_value ?? ""}`;
     default:
       return entry.action;
   }
@@ -154,17 +163,110 @@ function AddStepForm({
   );
 }
 
+/** Checks de compañías dentro de la tarea de accesos. */
+function CompanyChecklist({
+  substeps,
+  busyId,
+  onToggle,
+  onSync,
+}: {
+  substeps: ProtocolSubstep[];
+  busyId: string | null;
+  onToggle: (id: string, completed: boolean) => void;
+  onSync: () => void;
+}) {
+  const done = substeps.filter((s) => s.completed).length;
+  return (
+    <div className="mt-3 rounded-md border border-gray-200 bg-white p-3 sm:ml-8">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Compañías
+        </span>
+        {substeps.length > 0 && <Progress done={done} total={substeps.length} />}
+      </div>
+
+      {substeps.length === 0 ? (
+        <p className="text-xs text-gray-500">
+          Esta ficha aún no tiene compañías cargadas. Dalas de alta en{" "}
+          <Link href="/admin/protocolos/companias" className="text-belsue hover:underline">
+            Protocolos → Compañías
+          </Link>{" "}
+          y pulsa «Cargar compañías».
+        </p>
+      ) : (
+        <ul className="grid gap-1 sm:grid-cols-2">
+          {substeps.map((s) => (
+            <li key={s.id}>
+              <label
+                className={`flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-gray-50 ${
+                  busyId === s.id ? "opacity-60" : ""
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={s.completed}
+                  onChange={(e) => onToggle(s.id, e.target.checked)}
+                  disabled={busyId !== null}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-belsue"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={
+                        s.completed ? "text-gray-500 line-through decoration-gray-400" : "text-gray-800"
+                      }
+                    >
+                      {s.label}
+                    </span>
+                    <AccessTypeBadge type={s.detail} />
+                  </span>
+                  {s.completed && (
+                    <span className="block text-[11px] text-green-700">
+                      {s.completed_by_name ?? "—"} · {formatDateTime(s.completed_at)}
+                    </span>
+                  )}
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <button
+        type="button"
+        onClick={onSync}
+        disabled={busyId !== null}
+        title="Añade las compañías de la lista que esta ficha aún no tenga"
+        className="mt-2 text-xs font-medium text-belsue hover:underline disabled:opacity-40"
+      >
+        {substeps.length === 0 ? "Cargar compañías" : "Añadir compañías nuevas de la lista"}
+      </button>
+    </div>
+  );
+}
+
+interface CompanyProps {
+  substeps?: ProtocolSubstep[];
+  busySubId?: string | null;
+  onToggleSub?: (id: string, completed: boolean) => void;
+  onSyncCompanies?: () => void;
+}
+
 function StepRow({
   step,
   roles,
   busy,
   onChange,
+  substeps,
+  busySubId,
+  onToggleSub,
+  onSyncCompanies,
 }: {
   step: ProtocolRecordStep;
   roles: KeyName[];
   busy: boolean;
   onChange: (patch: StepPatch) => void;
-}) {
+} & CompanyProps) {
   const [draft, setDraft] = useState(step.notes ?? "");
   const [showNotes, setShowNotes] = useState(!!step.notes);
   const [editingText, setEditingText] = useState(false);
@@ -283,6 +385,15 @@ function StepRow({
           </select>
         </label>
       </div>
+
+      {step.subitems === "companias" && onToggleSub && onSyncCompanies && (
+        <CompanyChecklist
+          substeps={substeps ?? []}
+          busyId={busySubId ?? null}
+          onToggle={onToggleSub}
+          onSync={onSyncCompanies}
+        />
+      )}
 
       {step.allows_notes && (
         <div className="mt-3 pl-8">
@@ -424,6 +535,68 @@ export default function FichaPage() {
       return false;
     }
   }
+
+  // --- Lista de compañías de la tarea de accesos ---
+  const [busySubId, setBusySubId] = useState<string | null>(null);
+
+  const substepsByStep = useMemo(() => {
+    const map = new Map<string, ProtocolSubstep[]>();
+    for (const s of data?.substeps ?? []) {
+      const list = map.get(s.step_id) ?? [];
+      list.push(s);
+      map.set(s.step_id, list);
+    }
+    return map;
+  }, [data?.substeps]);
+
+  async function toggleSubstep(subId: string, completed: boolean) {
+    setBusySubId(subId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/protocolos/subpasos/${subId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Error al marcar la compañía.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al marcar la compañía.");
+    } finally {
+      setBusySubId(null);
+    }
+  }
+
+  async function syncCompanies(stepId: string) {
+    setBusySubId(stepId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/protocolos/pasos/${stepId}/companias`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Error al cargar las compañías.");
+      if (json.added === 0) {
+        setError("No hay compañías nuevas: esta ficha ya tiene todas las de la lista.");
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar las compañías.");
+    } finally {
+      setBusySubId(null);
+    }
+  }
+
+  const companyProps = (s: ProtocolRecordStep): CompanyProps =>
+    s.subitems === "companias"
+      ? {
+          substeps: substepsByStep.get(s.id) ?? [],
+          busySubId,
+          onToggleSub: toggleSubstep,
+          onSyncCompanies: () => syncCompanies(s.id),
+        }
+      : {};
 
   async function updateStep(stepId: string, patch: StepPatch) {
     setBusyStep(stepId);
@@ -608,6 +781,7 @@ export default function FichaPage() {
                     roles={data.roles}
                     busy={busyStep === s.id}
                     onChange={(patch) => updateStep(s.id, patch)}
+                    {...companyProps(s)}
                   />
                 ))}
               </ol>
@@ -656,6 +830,7 @@ export default function FichaPage() {
                               roles={data.roles}
                               busy={busyStep === s.id}
                               onChange={(patch) => updateStep(s.id, patch)}
+                    {...companyProps(s)}
                             />
                           ))}
                         </ol>

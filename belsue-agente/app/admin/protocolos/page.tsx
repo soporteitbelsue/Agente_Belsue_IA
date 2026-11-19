@@ -88,6 +88,24 @@ export default function ProtocolosPage() {
             </Link>
           ))}
 
+        {!loading && (
+          <Link
+            href="/admin/protocolos/companias"
+            className="group flex flex-col justify-between rounded-lg border border-dashed border-gray-300 bg-white p-5 transition hover:border-belsue"
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800 group-hover:text-belsue">
+                Compañías
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Lista de compañías con las que trabajamos y si su acceso web es
+                general o particular.
+              </p>
+            </div>
+            <span className="mt-4 text-sm font-medium text-belsue">Gestionar →</span>
+          </Link>
+        )}
+
         {!loading && !error && templates.length === 0 && (
           <p className="text-sm text-gray-500">
             No hay protocolos definidos. Aplica la migración 018.
