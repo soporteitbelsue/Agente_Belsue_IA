@@ -1,10 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import AdminTabs from "@/components/admin/AdminTabs";
 import type { KeyName, ProtocolTemplateStep } from "@/types";
+
+/**
+ * Editor de plantilla en BORRADOR: editar, añadir, quitar y reordenar solo
+ * cambian lo que se ve en pantalla. Nada se graba hasta pulsar "Guardar
+ * cambios", que manda la plantilla entera y la base la aplica de una vez
+ * (todo o nada). "Descartar" vuelve a lo guardado.
+ */
 
 interface TemplateInfo {
   key: string;
@@ -13,7 +20,11 @@ interface TemplateInfo {
   asks_department: boolean;
 }
 
-interface StepDraft {
+interface DraftStep {
+  /** Clave de pantalla: el id real o uno temporal para las nuevas. */
+  uid: string;
+  /** null = todavía no existe en la base. */
+  id: string | null;
   text: string;
   help: string;
   default_role: string;
@@ -25,8 +36,10 @@ interface StepDraft {
 const inputCls =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-belsue focus:outline-none focus:ring-1 focus:ring-belsue";
 
-function draftFrom(step: ProtocolTemplateStep): StepDraft {
+function toDraft(step: ProtocolTemplateStep): DraftStep {
   return {
+    uid: step.id,
+    id: step.id,
     text: step.text,
     help: step.help ?? "",
     default_role: step.default_role,
@@ -36,55 +49,55 @@ function draftFrom(step: ProtocolTemplateStep): StepDraft {
   };
 }
 
-/** Formulario de una tarea: el mismo para añadir y para editar. */
-function StepForm({
-  initial,
+/** Comparación para saber si hay cambios sin guardar (sin el uid de pantalla). */
+function fingerprint(steps: DraftStep[]): string {
+  return JSON.stringify(
+    steps.map((s) => [
+      s.id,
+      s.text.trim(),
+      s.help.trim(),
+      s.default_role,
+      s.allows_notes,
+      [...s.departments].sort(),
+      s.companies,
+    ]),
+  );
+}
+
+let tmpCounter = 0;
+const newUid = () => `nueva-${Date.now()}-${tmpCounter++}`;
+
+/** Campos de una tarea, enlazados directamente al borrador. */
+function StepFields({
+  step,
   roles,
   departments,
   asksDepartment,
-  submitLabel,
-  busy,
-  onSubmit,
-  onCancel,
+  onChange,
 }: {
-  initial: StepDraft;
+  step: DraftStep;
   roles: KeyName[];
   departments: KeyName[];
   asksDepartment: boolean;
-  submitLabel: string;
-  busy: boolean;
-  onSubmit: (draft: StepDraft) => void;
-  onCancel: () => void;
+  onChange: (patch: Partial<DraftStep>) => void;
 }) {
-  const [d, setD] = useState<StepDraft>(initial);
-  const set = <K extends keyof StepDraft>(k: K, v: StepDraft[K]) =>
-    setD((prev) => ({ ...prev, [k]: v }));
-
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(d);
-      }}
-      className="space-y-3"
-    >
+    <div className="space-y-3">
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-gray-600">Tarea</span>
         <input
-          value={d.text}
-          onChange={(e) => set("text", e.target.value)}
-          disabled={busy}
+          value={step.text}
+          onChange={(e) => onChange({ text: e.target.value })}
           autoFocus
           maxLength={500}
-          className={inputCls}
+          className={`${inputCls} ${step.text.trim() ? "" : "border-red-200"}`}
         />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-gray-600">Ayuda (opcional)</span>
         <input
-          value={d.help}
-          onChange={(e) => set("help", e.target.value)}
-          disabled={busy}
+          value={step.help}
+          onChange={(e) => onChange({ help: e.target.value })}
           maxLength={1000}
           placeholder="Explicación que se ve debajo de la tarea"
           className={inputCls}
@@ -94,10 +107,9 @@ function StepForm({
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-gray-600">Responsable por defecto</span>
           <select
-            value={d.default_role}
-            onChange={(e) => set("default_role", e.target.value)}
-            disabled={busy}
-            className={inputCls}
+            value={step.default_role}
+            onChange={(e) => onChange({ default_role: e.target.value })}
+            className={`${inputCls} ${step.default_role ? "" : "border-red-200"}`}
           >
             <option value="">Elige…</option>
             {roles.map((r) => (
@@ -110,9 +122,8 @@ function StepForm({
         <label className="flex items-center gap-2 self-end pb-2 text-sm text-gray-600">
           <input
             type="checkbox"
-            checked={d.allows_notes}
-            onChange={(e) => set("allows_notes", e.target.checked)}
-            disabled={busy}
+            checked={step.allows_notes}
+            onChange={(e) => onChange({ allows_notes: e.target.checked })}
             className="h-4 w-4 accent-belsue"
           />
           Admite observaciones
@@ -122,9 +133,8 @@ function StepForm({
       <label className="flex items-start gap-2 text-sm text-gray-600">
         <input
           type="checkbox"
-          checked={d.companies}
-          onChange={(e) => set("companies", e.target.checked)}
-          disabled={busy}
+          checked={step.companies}
+          onChange={(e) => onChange({ companies: e.target.checked })}
           className="mt-0.5 h-4 w-4 accent-belsue"
         />
         <span>
@@ -147,16 +157,14 @@ function StepForm({
               <label key={dep.key} className="flex items-center gap-1.5 text-gray-600">
                 <input
                   type="checkbox"
-                  checked={d.departments.includes(dep.key)}
+                  checked={step.departments.includes(dep.key)}
                   onChange={(e) =>
-                    set(
-                      "departments",
-                      e.target.checked
-                        ? [...d.departments, dep.key]
-                        : d.departments.filter((k) => k !== dep.key),
-                    )
+                    onChange({
+                      departments: e.target.checked
+                        ? [...step.departments, dep.key]
+                        : step.departments.filter((k) => k !== dep.key),
+                    })
                   }
-                  disabled={busy}
                   className="h-4 w-4 accent-belsue"
                 />
                 {dep.name}
@@ -165,50 +173,37 @@ function StepForm({
           </div>
         </fieldset>
       )}
-
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={busy || !d.text.trim() || !d.default_role}
-          className="rounded-md bg-belsue px-3 py-1.5 text-sm font-medium text-white hover:bg-belsue-700 disabled:opacity-40"
-        >
-          {busy ? "Guardando…" : submitLabel}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={busy}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
-        >
-          Cancelar
-        </button>
-      </div>
-    </form>
+    </div>
   );
 }
 
 export default function TemplateEditorPage() {
   const { tipo } = useParams<{ tipo: string }>();
+  const router = useRouter();
 
   const [template, setTemplate] = useState<TemplateInfo | null>(null);
-  const [steps, setSteps] = useState<ProtocolTemplateStep[]>([]);
+  const [saved, setSaved] = useState<DraftStep[]>([]);
+  const [steps, setSteps] = useState<DraftStep[]>([]);
   const [roles, setRoles] = useState<KeyName[]>([]);
   const [departments, setDepartments] = useState<KeyName[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const [openUid, setOpenUid] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/protocolos/plantillas/${tipo}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error al cargar la plantilla.");
+      const drafts = (data.steps as ProtocolTemplateStep[]).map(toDraft);
       setTemplate(data.template);
-      setSteps(data.steps);
+      setSaved(drafts);
+      setSteps(drafts);
       setRoles(data.roles);
       setDepartments(data.departments);
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar la plantilla.");
     } finally {
@@ -220,137 +215,161 @@ export default function TemplateEditorPage() {
     load();
   }, [load]);
 
-  /** Lanza una petición, recarga y deja el error a la vista si falla. */
-  async function run(request: () => Promise<Response>, onOk?: () => void) {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await request();
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "No se ha podido guardar.");
-      onOk?.();
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se ha podido guardar.");
-      // Lo pintado en pantalla puede no ser lo guardado (p. ej. un reordenado
-      // que ha fallado): se vuelve a lo que hay en la base.
-      await load();
-    } finally {
-      setBusy(false);
-    }
+  const dirty = useMemo(() => fingerprint(steps) !== fingerprint(saved), [steps, saved]);
+  const removedCount = saved.filter((s) => !steps.some((d) => d.id === s.id)).length;
+
+  // Aviso del navegador al cerrar o recargar con cambios sin guardar.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (dirty) setJustSaved(false);
+  }, [dirty]);
+
+  // --- Cambios en el borrador (nada se graba aquí) ---
+  function patchStep(uid: string, patch: Partial<DraftStep>) {
+    setSteps((prev) => prev.map((s) => (s.uid === uid ? { ...s, ...patch } : s)));
   }
 
-  const payload = (d: StepDraft) =>
-    JSON.stringify({
-      text: d.text.trim(),
-      help: d.help.trim() || null,
-      default_role: d.default_role,
-      allows_notes: d.allows_notes,
-      departments: d.departments,
-      subitems: d.companies ? "companias" : null,
-    });
-
-  function addStep(d: StepDraft) {
-    run(
-      () =>
-        fetch(`/api/admin/protocolos/plantillas/${tipo}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: payload(d),
-        }),
-      () => setAdding(false),
-    );
+  function addStep() {
+    const uid = newUid();
+    setSteps((prev) => [
+      ...prev,
+      {
+        uid,
+        id: null,
+        text: "",
+        help: "",
+        default_role: "",
+        allows_notes: true,
+        departments: [],
+        companies: false,
+      },
+    ]);
+    setOpenUid(uid);
   }
 
-  function saveStep(id: string, d: StepDraft) {
-    run(
-      () =>
-        fetch(`/api/admin/protocolos/plantillas/${tipo}/pasos/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: payload(d),
-        }),
-      () => setEditingId(null),
-    );
+  function removeStep(uid: string) {
+    setSteps((prev) => prev.filter((s) => s.uid !== uid));
+    if (openUid === uid) setOpenUid(null);
   }
 
-  function removeStep(step: ProtocolTemplateStep) {
-    if (
-      !window.confirm(
-        `¿Quitar la tarea «${step.text}» de la plantilla?\n\n` +
-          `Las fichas ya creadas la conservan; solo dejará de salir en las nuevas.`,
-      )
-    )
-      return;
-    run(() =>
-      fetch(`/api/admin/protocolos/plantillas/${tipo}/pasos/${step.id}`, {
-        method: "DELETE",
-      }),
-    );
-  }
-
-  /**
-   * Mueve la tarea de `from` para que quede delante de la que ahora ocupa
-   * `insertAt` (0..n; n = al final). El orden nuevo se pinta al momento y
-   * luego se guarda; si falla, `run` recarga el orden real.
-   */
+  /** Mueve la tarea de `from` delante de la que ocupa `insertAt` (0..n). */
   function reorder(from: number, insertAt: number) {
     const to = insertAt > from ? insertAt - 1 : insertAt;
     if (to === from || to < 0 || to >= steps.length) return;
-    const next = [...steps];
-    const moved = next.splice(from, 1);
-    next.splice(to, 0, ...moved);
-    setSteps(next);
-    run(() =>
-      fetch(`/api/admin/protocolos/plantillas/${tipo}`, {
+    setSteps((prev) => {
+      const next = [...prev];
+      const moved = next.splice(from, 1);
+      next.splice(to, 0, ...moved);
+      return next;
+    });
+  }
+
+  const move = (index: number, delta: -1 | 1) =>
+    reorder(index, delta === -1 ? index - 1 : index + 2);
+
+  // --- Guardar / descartar ---
+  async function save() {
+    const bad = steps.findIndex((s) => !s.text.trim() || !s.default_role);
+    if (bad !== -1) {
+      setOpenUid(steps[bad]!.uid);
+      setError(`A la tarea ${bad + 1} le falta el texto o el responsable.`);
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/protocolos/plantillas/${tipo}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: next.map((s) => s.id) }),
-      }),
-    );
+        body: JSON.stringify({
+          steps: steps.map((s) => ({
+            id: s.id,
+            text: s.text.trim(),
+            help: s.help.trim() || null,
+            default_role: s.default_role,
+            allows_notes: s.allows_notes,
+            departments: template?.asks_department ? s.departments : [],
+            subitems: s.companies ? "companias" : null,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "No se ha podido guardar.");
+      setOpenUid(null);
+      await load();
+      setJustSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se ha podido guardar.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  /** Flechas: una posición arriba o abajo. */
-  function move(index: number, delta: -1 | 1) {
-    reorder(index, delta === -1 ? index - 1 : index + 2);
+  function discard() {
+    if (!window.confirm("¿Descartar los cambios sin guardar?")) return;
+    setSteps(saved);
+    setOpenUid(null);
+    setError(null);
   }
 
-  // --- Arrastrar y soltar (nativo del navegador, sin librerías) ---
+  function goBack(e: React.MouseEvent) {
+    if (dirty && !window.confirm("Tienes cambios sin guardar. ¿Salir sin guardarlos?")) {
+      e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    router.push(`/admin/protocolos/${tipo}`);
+  }
+
+  // --- Arrastrar y soltar (nativo del navegador) ---
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  // Hueco donde caería: 0..n (delante de la tarea i; n = al final).
   const [dropAt, setDropAt] = useState<number | null>(null);
-  const canDrag = !busy && editingId === null && !adding;
+  const canDrag = !saving && openUid === null;
 
   function handleDragOver(e: React.DragEvent<HTMLLIElement>, index: number) {
     if (dragIndex === null) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    // Mitad de arriba de la tarjeta = delante; mitad de abajo = detrás.
     const box = e.currentTarget.getBoundingClientRect();
     const at = e.clientY < box.top + box.height / 2 ? index : index + 1;
     if (at !== dropAt) setDropAt(at);
   }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
+  function finishDrag(e?: React.DragEvent) {
+    e?.preventDefault();
     if (dragIndex !== null && dropAt !== null) reorder(dragIndex, dropAt);
     setDragIndex(null);
     setDropAt(null);
   }
 
-  /** Línea de "caerá aquí", salvo donde soltar no movería nada. */
   const showDropLine = (at: number) =>
     dragIndex !== null && dropAt === at && at !== dragIndex && at !== dragIndex + 1;
 
-  const roleName = (key: string) => roles.find((r) => r.key === key)?.name ?? key;
+  const roleName = (key: string) => roles.find((r) => r.key === key)?.name ?? "Sin responsable";
   const deptNames = (keys: string[]) =>
     keys.map((k) => departments.find((d) => d.key === k)?.name ?? k).join(", ");
+  const savedById = useMemo(() => new Map(saved.map((s) => [s.id, s])), [saved]);
+  const isChanged = (s: DraftStep) => {
+    const orig = s.id ? savedById.get(s.id) : undefined;
+    return !orig || fingerprint([{ ...s }]) !== fingerprint([{ ...orig }]);
+  };
 
   return (
-    <div className="mx-auto w-full max-w-[1700px] space-y-6 overflow-y-auto px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-[1700px] space-y-6 overflow-y-auto px-4 pb-28 pt-6 sm:px-6">
       <div>
         <Link
           href={`/admin/protocolos/${tipo}`}
+          onClick={goBack}
           className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-belsue hover:underline"
         >
           ← Volver a {template?.name ?? "las fichas"}
@@ -359,18 +378,12 @@ export default function TemplateEditorPage() {
           Plantilla: {template?.name ?? (loading ? "Cargando…" : "")}
         </h1>
         <p className="text-sm text-gray-500">
-          Los cambios se aplican a las fichas que se creen a partir de ahora. Las
-          fichas ya creadas no cambian.
+          Haz los cambios que quieras y pulsa <b>Guardar cambios</b> al final. Se aplican a
+          las fichas que se creen a partir de ahora; las ya creadas no cambian.
         </p>
       </div>
 
       <AdminTabs active="/admin/protocolos" />
-
-      {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          {error}
-        </div>
-      )}
 
       {template && (
         <div className="space-y-3">
@@ -379,59 +392,62 @@ export default function TemplateEditorPage() {
               Arrastra las tareas desde ⠿ para cambiarlas de orden, o usa las flechas.
             </p>
           )}
-          <ol className="space-y-2" onDragLeave={(e) => {
-            // Solo al salir de la lista entera, no al pasar de una tarjeta a otra.
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropAt(null);
-          }}>
-            {steps.map((s, i) => (
-              <li
-                key={s.id}
-                draggable={canDrag}
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", s.id); // Firefox lo exige
-                  setDragIndex(i);
-                }}
-                onDragOver={(e) => handleDragOver(e, i)}
-                onDrop={handleDrop}
-                onDragEnd={() => {
-                  setDragIndex(null);
-                  setDropAt(null);
-                }}
-                className={`relative rounded-lg border bg-white p-4 shadow-sm transition-opacity ${
-                  dragIndex === i ? "border-belsue opacity-40" : "border-gray-200"
-                }`}
-              >
-                {showDropLine(i) && (
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute -top-[6px] left-0 right-0 h-1 rounded-full bg-belsue"
-                  />
-                )}
-                {i === steps.length - 1 && showDropLine(steps.length) && (
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute -bottom-[6px] left-0 right-0 h-1 rounded-full bg-belsue"
-                  />
-                )}
-                {editingId === s.id ? (
-                  <StepForm
-                    initial={draftFrom(s)}
-                    roles={roles}
-                    departments={departments}
-                    asksDepartment={template.asks_department}
-                    submitLabel="Guardar"
-                    busy={busy}
-                    onSubmit={(d) => saveStep(s.id, d)}
-                    onCancel={() => setEditingId(null)}
-                  />
-                ) : (
+
+          <ol
+            className="space-y-2"
+            // Soltar en el hueco entre dos tarjetas también cuenta.
+            onDragOver={(e) => dragIndex !== null && e.preventDefault()}
+            onDrop={finishDrag}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropAt(null);
+            }}
+          >
+            {steps.map((s, i) => {
+              const open = openUid === s.uid;
+              const changed = isChanged(s);
+              return (
+                <li
+                  key={s.uid}
+                  draggable={canDrag}
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", s.uid); // Firefox lo exige
+                    setDragIndex(i);
+                  }}
+                  onDragOver={(e) => handleDragOver(e, i)}
+                  onDragEnd={() => {
+                    setDragIndex(null);
+                    setDropAt(null);
+                  }}
+                  className={`relative rounded-lg border bg-white p-4 shadow-sm transition-opacity ${
+                    dragIndex === i
+                      ? "border-belsue opacity-40"
+                      : changed
+                        ? "border-amber-300"
+                        : "border-gray-200"
+                  }`}
+                >
+                  {showDropLine(i) && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -top-[6px] left-0 right-0 h-1 rounded-full bg-belsue"
+                    />
+                  )}
+                  {i === steps.length - 1 && showDropLine(steps.length) && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -bottom-[6px] left-0 right-0 h-1 rounded-full bg-belsue"
+                    />
+                  )}
+
                   <div className="flex flex-wrap items-start gap-3">
                     <span
                       aria-hidden
                       title="Arrastrar para cambiar el orden"
                       className={`select-none self-center px-1 text-lg leading-none text-gray-400 ${
-                        canDrag ? "cursor-grab hover:text-belsue active:cursor-grabbing" : "opacity-30"
+                        canDrag
+                          ? "cursor-grab hover:text-belsue active:cursor-grabbing"
+                          : "opacity-30"
                       }`}
                     >
                       ⠿
@@ -440,7 +456,7 @@ export default function TemplateEditorPage() {
                       <button
                         type="button"
                         onClick={() => move(i, -1)}
-                        disabled={busy || i === 0}
+                        disabled={saving || i === 0}
                         aria-label="Subir"
                         className="rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
                       >
@@ -449,105 +465,153 @@ export default function TemplateEditorPage() {
                       <button
                         type="button"
                         onClick={() => move(i, 1)}
-                        disabled={busy || i === steps.length - 1}
+                        disabled={saving || i === steps.length - 1}
                         aria-label="Bajar"
                         className="rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30"
                       >
                         ▼
                       </button>
                     </div>
+
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-800">
                         <span className="mr-1 tabular-nums text-gray-400">{i + 1}.</span>
-                        {s.text}
+                        {s.text.trim() || <span className="italic text-gray-400">Tarea sin texto</span>}
+                        {!s.id ? (
+                          <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 align-middle text-[11px] font-medium text-amber-700">
+                            Nueva · sin guardar
+                          </span>
+                        ) : (
+                          changed && (
+                            <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 align-middle text-[11px] font-medium text-amber-700">
+                              Modificada · sin guardar
+                            </span>
+                          )
+                        )}
                       </p>
-                      {s.help && <p className="mt-1 text-xs text-gray-500">{s.help}</p>}
-                      <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-                        <span className="rounded bg-belsue/10 px-2 py-0.5 font-medium text-belsue">
-                          {roleName(s.default_role)}
-                        </span>
-                        {(s.condition?.departments?.length ?? 0) > 0 && (
-                          <span className="rounded bg-amber-100 px-2 py-0.5 font-medium text-amber-700">
-                            Solo: {deptNames(s.condition!.departments!)}
-                          </span>
-                        )}
-                        {!s.allows_notes && (
-                          <span className="rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-600">
-                            Sin observaciones
-                          </span>
-                        )}
-                        {s.subitems === "companias" && (
-                          <span className="rounded bg-sky-100 px-2 py-0.5 font-medium text-sky-700">
-                            Lista de compañías
-                          </span>
-                        )}
-                      </div>
+                      {!open && (
+                        <>
+                          {s.help.trim() && (
+                            <p className="mt-1 text-xs text-gray-500">{s.help}</p>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                            <span className="rounded bg-belsue/10 px-2 py-0.5 font-medium text-belsue">
+                              {roleName(s.default_role)}
+                            </span>
+                            {template.asks_department && s.departments.length > 0 && (
+                              <span className="rounded bg-amber-100 px-2 py-0.5 font-medium text-amber-700">
+                                Solo: {deptNames(s.departments)}
+                              </span>
+                            )}
+                            {!s.allows_notes && (
+                              <span className="rounded bg-gray-100 px-2 py-0.5 font-medium text-gray-600">
+                                Sin observaciones
+                              </span>
+                            )}
+                            {s.companies && (
+                              <span className="rounded bg-sky-100 px-2 py-0.5 font-medium text-sky-700">
+                                Lista de compañías
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
+
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          setAdding(false);
-                          setEditingId(s.id);
-                        }}
-                        disabled={busy}
-                        className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                        onClick={() => setOpenUid(open ? null : s.uid)}
+                        disabled={saving}
+                        className={`rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
+                          open
+                            ? "border-belsue bg-belsue/10 text-belsue"
+                            : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                        }`}
                       >
-                        Editar
+                        {open ? "Cerrar" : "Editar"}
                       </button>
                       <button
                         type="button"
-                        onClick={() => removeStep(s)}
-                        disabled={busy}
+                        onClick={() => removeStep(s.uid)}
+                        disabled={saving}
                         className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
                       >
                         Quitar
                       </button>
                     </div>
                   </div>
-                )}
-              </li>
-            ))}
+
+                  {open && (
+                    <div className="mt-4 border-t border-gray-100 pt-4">
+                      <StepFields
+                        step={s}
+                        roles={roles}
+                        departments={departments}
+                        asksDepartment={template.asks_department}
+                        onChange={(patch) => patchStep(s.uid, patch)}
+                      />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ol>
 
           {steps.length === 0 && (
-            <p className="text-sm text-gray-500">Esta plantilla aún no tiene tareas.</p>
+            <p className="text-sm text-gray-500">Esta plantilla no tiene tareas.</p>
           )}
 
-          {adding ? (
-            <div className="rounded-lg border border-belsue/30 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-gray-800">Nueva tarea</h2>
-              <StepForm
-                initial={{
-                  text: "",
-                  help: "",
-                  default_role: "",
-                  allows_notes: true,
-                  departments: [],
-                  companies: false,
-                }}
-                roles={roles}
-                departments={departments}
-                asksDepartment={template.asks_department}
-                submitLabel="Añadir tarea"
-                busy={busy}
-                onSubmit={addStep}
-                onCancel={() => setAdding(false)}
-              />
+          <button
+            type="button"
+            onClick={addStep}
+            disabled={saving}
+            className="rounded-md border border-dashed border-gray-300 px-4 py-2 text-sm font-medium text-belsue hover:border-belsue hover:bg-belsue/5 disabled:opacity-40"
+          >
+            + Añadir tarea
+          </button>
+        </div>
+      )}
+
+      {/* Barra de guardado, siempre a la vista abajo */}
+      {template && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur">
+          <div className="mx-auto flex max-w-[1700px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+            <div className="min-w-0 flex-1 text-sm">
+              {error ? (
+                <span className="font-medium text-red-600">{error}</span>
+              ) : dirty ? (
+                <span className="font-medium text-amber-700">
+                  Tienes cambios sin guardar
+                  {removedCount > 0 &&
+                    ` (${removedCount} tarea${removedCount === 1 ? "" : "s"} quitada${
+                      removedCount === 1 ? "" : "s"
+                    })`}
+                  .
+                </span>
+              ) : justSaved ? (
+                <span className="font-medium text-green-700">✓ Cambios guardados.</span>
+              ) : (
+                <span className="text-gray-500">Sin cambios.</span>
+              )}
             </div>
-          ) : (
             <button
               type="button"
-              onClick={() => {
-                setEditingId(null);
-                setAdding(true);
-              }}
-              disabled={busy}
-              className="rounded-lg bg-belsue px-4 py-2.5 text-sm font-medium text-white hover:bg-belsue-700 disabled:opacity-40"
+              onClick={discard}
+              disabled={!dirty || saving}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
             >
-              + Añadir tarea
+              Descartar
             </button>
-          )}
+            <button
+              type="button"
+              onClick={save}
+              disabled={!dirty || saving}
+              className="rounded-lg bg-belsue px-5 py-2 text-sm font-semibold text-white hover:bg-belsue-700 disabled:opacity-40"
+            >
+              {saving ? "Guardando…" : "Guardar cambios"}
+            </button>
+          </div>
         </div>
       )}
     </div>

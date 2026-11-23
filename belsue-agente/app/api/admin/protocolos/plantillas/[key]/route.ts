@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase";
 import {
   TEMPLATE_STEP_FIELDS,
   protocolErrorResponse,
   requireProtocolActor,
 } from "@/lib/protocols";
-import { buildTemplateStepRow, templateStepSchema } from "@/lib/protocolTemplateSteps";
+import { saveTemplateSchema } from "@/lib/protocolTemplateSteps";
 
 export const runtime = "nodejs";
 
-const reorderSchema = z.object({ ids: z.array(z.string().uuid()).min(1) });
-
 /**
- * GET /api/admin/protocolos/plantillas/{key} — la plantilla con sus tareas y
+ * GET /api/admin/protocolos/plantillas/{key}: la plantilla con sus tareas y
  * las listas para editarla (responsables y departamentos).
  */
 export async function GET(
@@ -61,54 +58,11 @@ export async function GET(
   }
 }
 
-/** POST /api/admin/protocolos/plantillas/{key} — añade una tarea al final. */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { key: string } },
-) {
-  const auth = await requireProtocolActor();
-  if (auth.response) return auth.response;
-
-  try {
-    const parsed = templateStepSchema.safeParse(await req.json());
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? "Datos inválidos." },
-        { status: 400 },
-      );
-    }
-
-    const supabase = supabaseServer();
-    const row = await buildTemplateStepRow(supabase, params.key, parsed.data);
-    if ("response" in row) return row.response;
-
-    const { data: last } = await supabase
-      .from("protocol_template_steps")
-      .select("position")
-      .eq("template_key", params.key)
-      .order("position", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const { data, error } = await supabase
-      .from("protocol_template_steps")
-      .insert({
-        ...row.values,
-        template_key: params.key,
-        position: ((last?.position as number | undefined) ?? 0) + 1,
-      })
-      .select(TEMPLATE_STEP_FIELDS)
-      .single();
-    if (error) return protocolErrorResponse(error, "Error al añadir la tarea");
-
-    return NextResponse.json({ step: data }, { status: 201 });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Error desconocido.";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
-
-/** PUT /api/admin/protocolos/plantillas/{key} — { ids } en el orden nuevo. */
+/**
+ * PUT /api/admin/protocolos/plantillas/{key}: { steps } con la plantilla
+ * entera en su orden final. Se graba todo o nada (las tareas que no vengan
+ * se quitan). Solo afecta a las fichas que se creen después.
+ */
 export async function PUT(
   req: NextRequest,
   { params }: { params: { key: string } },
@@ -117,18 +71,25 @@ export async function PUT(
   if (auth.response) return auth.response;
 
   try {
-    const parsed = reorderSchema.safeParse(await req.json());
+    const parsed = saveTemplateSchema.safeParse(await req.json());
     if (!parsed.success) {
-      return NextResponse.json({ error: "Orden inválido." }, { status: 400 });
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? "Datos inválidos." },
+        { status: 400 },
+      );
     }
 
     const supabase = supabaseServer();
-    const { error } = await supabase.rpc("protocol_reorder_template_steps", {
+    const { error } = await supabase.rpc("protocol_save_template_steps", {
       p_template_key: params.key,
-      p_ids: parsed.data.ids,
+      p_steps: parsed.data.steps,
     });
-    if (error) return protocolErrorResponse(error, "Error al reordenar");
+    if (error) return protocolErrorResponse(error, "Error al guardar la plantilla");
 
+    console.info(
+      `[protocolos] Plantilla ${params.key} guardada por ${auth.actor.name} ` +
+        `(${parsed.data.steps.length} tareas).`,
+    );
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido.";
